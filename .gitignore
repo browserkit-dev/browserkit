@@ -1,0 +1,17 @@
+# session state and credentials — never commit
+*.storage-state.json
+.credentials/
+.env
+.env.local
+.env.production
+
+# runtime
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
