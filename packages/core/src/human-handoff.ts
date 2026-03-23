@@ -77,6 +77,12 @@ async function runBackgroundLogin(
   adapter: SiteAdapter,
   timeoutMs: number
 ): Promise<boolean> {
+  // Skip headed browser in CI environments — no display available
+  if (process.env["CI"]) {
+    log.info({ site: config.site }, "CI environment detected — skipping background headed browser login");
+    return false;
+  }
+
   // Use a fresh temp directory so we don't conflict with the running headless context
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `browserkit-login-${config.site}-`));
   log.info({ site: config.site, tempDir }, "opening temporary headed browser for login");

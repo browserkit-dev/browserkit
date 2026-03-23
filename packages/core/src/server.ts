@@ -73,7 +73,7 @@ export async function startServer(config: FrameworkConfig): Promise<ServerHandle
     );
   }
 
-  const sessionManager = new SessionManager();
+  const sessionManager = new SessionManager(config.dataDir ? { dataDir: config.dataDir } : {});
 
   // Track adapter entries alongside their handles so we can reload them
   const adapterEntries: Array<{ packageName: string; adapterConfig: import("./types.js").AdapterConfig; port: number }> = [];

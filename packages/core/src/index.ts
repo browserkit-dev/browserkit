@@ -13,6 +13,7 @@ export type {
   ToolDefinition,
   ToolResult,
   ToolContent,
+  ToolReference,
   AuthStrategy,
   SessionConfig,
   AdapterConfig,

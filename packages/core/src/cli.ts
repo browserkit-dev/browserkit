@@ -19,6 +19,9 @@ async function main(): Promise<void> {
       return cmdStart(args);
     case "login":
       return cmdLogin(args);
+    case "logout":
+      console.error("browserkit logout is not yet implemented");
+      process.exit(1);
     case "reload":
       return cmdReload(args);
     case "status":
@@ -153,6 +156,28 @@ async function cmdLogin(args: string[]): Promise<void> {
   }
 
   await sessionManager.closeAll();
+}
+
+// ─── logout ──────────────────────────────────────────────────────────────────
+
+async function cmdLogout(args: string[]): Promise<void> {
+  const site = args[0];
+  if (!site) {
+    console.error("Usage: browserkit logout <site>");
+    process.exit(1);
+  }
+
+  const { existsSync, rmSync } = await import("node:fs");
+  const { getDefaultDataDir } = await import("./session-manager.js");
+  const profileDir = `${getDefaultDataDir()}/profiles/${site}`;
+
+  if (!existsSync(profileDir)) {
+    console.log(`  No profile found for "${site}" — already logged out.`);
+    return;
+  }
+
+  rmSync(profileDir, { recursive: true, force: true });
+  console.log(`  ✓ Profile for "${site}" removed. Run \`browserkit login ${site}\` to re-authenticate.\n`);
 }
 
 // ─── status ──────────────────────────────────────────────────────────────────
@@ -356,6 +381,7 @@ Usage: browserkit <command> [options]
 Commands:
   start                 Start the browserkit daemon
   login <site>          Log in to a site (one-time, saves session)
+  logout <site>         Remove saved session for a site (delete profile)
   reload <site>         Reload a single adapter without restarting the daemon
   status                Show daemon status
   config cursor         Generate Cursor MCP settings JSON
@@ -369,6 +395,7 @@ Options (start):
 Examples:
   browserkit start --adapter @browserkit/adapter-linkedin
   browserkit login linkedin
+  browserkit logout linkedin
   browserkit reload google-discover
   browserkit status
   browserkit config cursor

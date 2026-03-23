@@ -127,6 +127,21 @@ export async function createAdapterServer(
   // protocol handshake (initialize) can happen independently per client.
   // All sessions share the same adapter, lock, rateLimiter, and browser.
 
+  // ── Zod schema shape extractor ────────────────────────────────────────────
+  // Uses string-based typeName check instead of instanceof to avoid false
+  // negatives when adapter and core have separate Zod installations (common
+  // with file: deps where each package resolves its own node_modules).
+  // Also unwraps ZodEffects (from .refine() / .transform()) to reach the
+  // underlying ZodObject shape.
+  function extractZodShape(schema: z.ZodTypeAny): Record<string, z.ZodTypeAny> {
+    const def = (schema as { _def?: { typeName?: string; schema?: z.ZodTypeAny } })._def;
+    if (!def) return {};
+    if (def.typeName === "ZodObject") return (schema as z.ZodObject<z.ZodRawShape>).shape;
+    // ZodEffects wraps .refine() and .transform() — unwrap to get the base object
+    if (def.typeName === "ZodEffects" && def.schema) return extractZodShape(def.schema);
+    return {};
+  }
+
   function createMcpSession(transport: StreamableHTTPServerTransport): McpServer {
     const mcp = new McpServer({ name: `browserkit-${site}`, version: "0.1.0" });
 
@@ -134,10 +149,15 @@ export async function createAdapterServer(
     for (const tool of adapter.tools()) {
       const toolName = tool.name;
       const inputShape = tool.inputSchema;
+      const annotations = {
+        readOnlyHint: true,
+        openWorldHint: true,
+      };
       mcp.tool(
         toolName,
         tool.description,
-        inputShape instanceof z.ZodObject ? inputShape.shape : {},
+        extractZodShape(inputShape),
+        annotations,
         async (input: unknown) => wrapToolCall(toolName, input)
       );
     }
@@ -150,6 +170,12 @@ export async function createAdapterServer(
       "browser",
       [
         `Browser management tool for the ${site} adapter. Use to inspect or control the browser session.`,
+        "",
+        "Actions:",
+        "  health_check  — login status, current mode, selector validity report",
+        "  screenshot    — capture current page as an inline image",
+        "  page_state    — current URL, title, mode, CDP endpoint",
+        "  set_mode      — switch headless/watch/paused; requires mode param",
         "",
         "Actions:",
         "  health_check  — login status, current mode, selector validity report",
@@ -402,6 +428,29 @@ export async function createAdapterServer(
             uri: `page://${site}/snapshot`,
             mimeType: "text/plain",
             text: `# Page snapshot — ${title}\n# URL: ${pageUrl}\n\n${snapshot}`,
+          }],
+        };
+      }
+    );
+
+    // ── close_session ────────────────────────────────────────────────────────
+    // Closes the browser session for this adapter — useful when the session has
+    // gone stale and you want a fresh start without restarting the whole daemon.
+    // The next tool call will automatically relaunch the browser.
+    mcp.tool(
+      "close_session",
+      `Close the ${site} browser session and release all browser resources. ` +
+      "The next tool call will automatically reopen the browser. " +
+      "Use this when the session has gone stale, you want to force a fresh login, " +
+      "or you want to free memory without stopping the daemon.",
+      {},
+      { title: "Close Browser Session", destructiveHint: true },
+      async () => {
+        await sessionManager.closeSite(site);
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Browser session for "${site}" closed. The next tool call will relaunch it.`,
           }],
         };
       }
