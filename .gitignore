@@ -19,3 +19,7 @@ __pycache__/
 # adapters live in their own repos — excluded from the core repo
 packages/adapter-hackernews/
 packages/adapter-linkedin/
+
+# local MCP client configuration — machine-specific
+.mcp.json
+.cursor/mcp.json

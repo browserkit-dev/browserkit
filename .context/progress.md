@@ -8,7 +8,25 @@
 - Archived original brainstorm MHTML to `docs/reference/`
 - Scaffolded full AI-native project structure (CLAUDE.md, .context/, .claude/, .cursor/)
 
-## Session 3 — HN Adapter Test Harness (2026-03-23)
+## Session 4 — Google Discover adapter + core improvements (2026-03-23)
+
+### Core framework additions
+
+- **`browserkit reload <site>`** — reloads a single adapter's MCP server without restarting the daemon. Browser session (cookies, profile) stays alive. POST `/reload/:site` endpoint on the status sidecar. 60s CLI timeout to accommodate `isLoggedIn` navigation.
+- **`browser` consolidated tool** — replaces the 5 individual management tools (`health_check`, `set_mode`, `take_screenshot`, `get_page_state`, `navigate`) with a single `browser({ action })` tool. Per-adapter tool count: HN 10→6, Google Discover 6→2. Removed `workflow-raw-access` prompt (niche, covered in README).
+- **`channel` in `AdapterConfig`** — pass `"chrome"` to use real Google Chrome instead of Playwright's Chromium. Fixes SIGTRAP crash when `set_mode` switches to headed on a profile that was created with real Chrome.
+- **Anti-automation flags** (`--disable-blink-features=AutomationControlled`) applied to all persistent contexts — removes `navigator.webdriver` signal that blocks Google login.
+- **`isLoggedIn` fix in `cli.ts`** — checks running pidfile BEFORE creating `SessionManager` to avoid "already running" error when logging in with daemon active.
+
+### Google Discover adapter (`browserkit-dev/adapter-google-discover`)
+
+- New standalone adapter using Pixel 5 mobile emulation so `google.com` serves the full Discover feed regardless of desktop rollout status
+- `get_feed({ count: 1–60, scroll: boolean })` — personalised articles; `scroll:true` progressively scrolls to load up to 60 cards
+- `src/scraper.ts` extracted for testability — heuristic extraction: longest leaf text = title, time-unit pattern = age, short non-title/age = source
+- `tests/fixtures/discover-mock.html` — mock DOM fixture matching real Google Discover structure
+- 44 tests: 9 unit, 23 mock DOM scraping (no network), 7 L3 protocol, 5 L4 reliability
+- Auth: `browserkit login google-discover` uses real Chrome via `channel:"chrome"` to bypass Google's bot detection; `isLoggedIn` no longer navigates during polling (fixed redirect loop bug)
+- `browserkit.config.js` updated with `channel:"chrome"` and `deviceEmulation:"Pixel 5"` for google-discover
 
 ### Bug fixes
 
