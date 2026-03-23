@@ -48,6 +48,13 @@ export interface SessionConfig {
   cdpUrl?: string | undefined;
   /** Chrome remote debugging port. When set, browser launches with --remote-debugging-port=debugPort. */
   debugPort?: number | undefined;
+  /**
+   * Playwright device preset name for browser emulation (e.g. "Pixel 5", "iPhone 13").
+   * Only applies to the "persistent" auth strategy.
+   * Use this for adapters that require a mobile user agent (e.g. Google Discover).
+   * Full list: https://playwright.dev/docs/emulation#devices
+   */
+  deviceEmulation?: string | undefined;
 }
 
 // ─── Adapter config (per-entry in browserkit.config.ts) ────────────────────
@@ -65,6 +72,14 @@ export interface AdapterConfig {
    * Recommended: set to adapterPort + 1000 (e.g. linkedin at 3847 → debugPort 4847)
    */
   debugPort?: number | undefined;
+  /**
+   * Playwright device preset name for browser emulation (e.g. "Pixel 5", "iPhone 13").
+   * When set, the persistent browser context launches with the device's viewport,
+   * user agent, and touch settings. Useful for sites that only serve certain content
+   * on mobile (e.g. Google Discover).
+   * Full list: https://playwright.dev/docs/emulation#devices
+   */
+  deviceEmulation?: string | undefined;
 }
 
 // ─── Handoff ─────────────────────────────────────────────────────────────────

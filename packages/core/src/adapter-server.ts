@@ -55,6 +55,7 @@ export async function createAdapterServer(
     profileDir: site,
     cdpUrl: adapterConfig.cdpUrl,
     debugPort: adapterConfig.debugPort,
+    deviceEmulation: adapterConfig.deviceEmulation,
   };
 
   let lastCallAt: Date | undefined;

@@ -153,3 +153,13 @@ All transitions use `SessionManager.setMode()` which closes and reopens the pers
 - **Headless by default** — no visible window; headed only for login, watch mode, pause mode
 - **No Docker** — headed browser + human handoff requires native display (X11/XQuartz adds too much friction)
 - **CDP over Playwright WS** for raw access — stable, documented, compatible with any CDP tool
+
+## Open Architectural Questions
+
+### Shared authentication profiles across adapters
+
+Today each adapter gets its own persistent browser profile, keyed by `site` name. This means multiple adapters for the same service (e.g. `adapter-google-discover`, `adapter-gmail`, `adapter-gcal`) would each require a separate login even though they share the same authentication domain (`*.google.com`).
+
+A future improvement would be a `sharedProfile` field in `AdapterConfig` — adapters that specify the same `sharedProfile` key share a single persistent profile directory. The `SessionManager` would manage the shared profile as a first-class concept. This would also allow `authStrategy: "cdp-attach"` to reuse a running session across adapters.
+
+**Deferred until there are at least two adapters that need the same login.**

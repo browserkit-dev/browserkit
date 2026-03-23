@@ -2,7 +2,7 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import type { Page, BrowserContext, Cookie } from "playwright";
-import { chromium } from "playwright";
+import { chromium, devices } from "playwright";
 import { getLogger } from "./logger.js";
 import type { SessionConfig, SiteAdapter, BrowserMode } from "./types.js";
 
@@ -166,10 +166,13 @@ export class SessionManager {
       // persistent (default)
       const profileDir = this.getProfileDir(config.site);
       fs.mkdirSync(profileDir, { recursive: true, mode: 0o700 });
+      // Apply Playwright device emulation preset if configured (e.g. "Pixel 5" for Google Discover)
+      const devicePreset = config.deviceEmulation ? (devices[config.deviceEmulation] ?? {}) : {};
       context = await chromium.launchPersistentContext(profileDir, {
         headless: !headed,
         slowMo,
         args: debugArgs,
+        ...devicePreset,
       });
     }
 
