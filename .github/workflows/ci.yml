@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        # version is read from packageManager field in package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @browserkit/core exec playwright install chromium --with-deps
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test (unit)
+        run: pnpm test
+
+      # E2E: checkout the HN adapter, patch its core dep, build it, then run E2E
+      - name: Checkout adapter-hackernews for E2E
+        uses: actions/checkout@v4
+        with:
+          repository: browserkit-dev/adapter-hackernews
+          path: packages/adapter-hackernews
+
+      - name: Build adapter-hackernews for E2E
+        working-directory: packages/adapter-hackernews
+        run: |
+          node -e "
+            const pkg = JSON.parse(require('fs').readFileSync('package.json'));
+            pkg.devDependencies['@browserkit/core'] = 'file:../core';
+            pkg.peerDependencies['@browserkit/core'] = '>=0.1.0';
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+          npm install
+          npm run build
+
+      - name: Test (E2E smoke)
+        run: pnpm test:e2e
+        timeout-minutes: 5
