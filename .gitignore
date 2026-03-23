@@ -15,3 +15,7 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# adapters live in their own repos — excluded from the core repo
+packages/adapter-hackernews/
+packages/adapter-linkedin/

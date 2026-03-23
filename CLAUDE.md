@@ -1,4 +1,4 @@
-# session-mcp
+# browserkit
 
 Open-source framework for building site-specific MCP servers over real authenticated user browser sessions. Turns your logged-in web sessions into composable, testable AI tools — locally.
 

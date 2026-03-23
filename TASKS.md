@@ -4,6 +4,9 @@
 
 - [x] Project scaffolding (SPEC, CLAUDE, ARCH, context, claude config)
 - [x] Reference brainstorm archived to `docs/reference/`
+- [x] Full framework implementation (Phases 1–9) — see `.context/progress.md`
+- [x] CDP raw access: `debugPort` config, `--remote-debugging-port` launch arg, `getCdpUrl()` in SessionManager, surfaced in `get_page_state`
+- [x] README, ARCH.md updated with raw Playwright access via CDP use-case
 
 ## In Progress
 
@@ -41,7 +44,7 @@
 ### Developer Experience
 - [ ] README with quickstart
 - [ ] Example: multi-site grocery price comparison in 10 lines
-- [ ] CLI: `session-mcp start [adapter...]`
+- [ ] CLI: `browserkit start [adapter...]`
 
 ## Follow-up Ideas
 

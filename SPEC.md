@@ -1,4 +1,4 @@
-# session-mcp — Product Spec
+# browserkit — Product Spec
 
 ## Problem
 
