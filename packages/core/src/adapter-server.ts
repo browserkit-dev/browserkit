@@ -56,6 +56,7 @@ export async function createAdapterServer(
     cdpUrl: adapterConfig.cdpUrl,
     debugPort: adapterConfig.debugPort,
     deviceEmulation: adapterConfig.deviceEmulation,
+    channel: adapterConfig.channel,
   };
 
   let lastCallAt: Date | undefined;
@@ -141,134 +142,130 @@ export async function createAdapterServer(
       );
     }
 
-    // ── health_check ────────────────────────────────────────────────────────
-    mcp.tool("health_check", "Check browser session health, login status, and selector validity", {}, async () => {
-      const page = await sessionManager.getPage(sessionConfig);
-      const loggedIn = await adapter.isLoggedIn(page);
-      let selectorsReport: Record<string, unknown> | undefined;
-      if (adapter.selectors) {
-        const { validateSelectors } = await import("./adapter-utils.js");
-        selectorsReport = await validateSelectors(page, adapter.selectors);
-      }
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            site,
-            mode: sessionManager.getCurrentMode(site),
-            loggedIn,
-            selectors: selectorsReport,
-            lastCallAt: lastCallAt?.toISOString(),
-            lastTool,
-          }, null, 2),
-        }],
-      };
-    });
-
-    // ── set_mode ────────────────────────────────────────────────────────────
+    // ── browser — consolidated management tool ────────────────────────────
+    // Replaces the 5 individual management tools (health_check, set_mode,
+    // take_screenshot, get_page_state, navigate) with a single tool so the
+    // AI sees fewer choices in its context window.
     mcp.tool(
-      "set_mode",
+      "browser",
       [
-        "Switch the browser between operating modes:",
-        "  • headless — fully invisible, automation runs normally (default)",
-        "  • watch    — browser becomes visible so you can observe automation in real-time",
-        "  • paused   — browser visible AND tool calls queued; you have manual control",
-        "Use slowMoMs with watch mode to slow down each Playwright action (good for debugging).",
+        `Browser management tool for the ${site} adapter. Use to inspect or control the browser session.`,
+        "",
+        "Actions:",
+        "  health_check  — login status, current mode, selector validity report",
+        "  screenshot    — capture current page as an inline image",
+        "  page_state    — current URL, title, mode, CDP endpoint",
+        "  set_mode      — switch headless/watch/paused; requires mode param",
+        "  navigate      — navigate to a URL; requires url param (use in watch/paused mode)",
+        "",
+        "Params:",
+        "  action   (required) — one of the actions above",
+        "  mode     (optional) — 'headless' | 'watch' | 'paused'  (for action:set_mode)",
+        "  slowMoMs (optional) — ms delay per action in watch mode",
+        "  url      (optional) — URL to navigate to  (for action:navigate)",
       ].join("\n"),
       {
-        mode: z.enum(["headless", "watch", "paused"]).describe("Target browser mode"),
+        action: z.enum(["health_check", "screenshot", "page_state", "set_mode", "navigate"])
+          .describe("What to do"),
+        mode: z.enum(["headless", "watch", "paused"]).optional()
+          .describe("Browser mode — required for action:set_mode"),
         slowMoMs: z.number().int().min(0).max(5000).optional()
-          .describe("ms delay between Playwright actions (watch mode only)"),
+          .describe("Slow motion ms — for action:set_mode with watch mode"),
+        url: z.string().url().optional()
+          .describe("URL to navigate to — required for action:navigate"),
       },
-      async ({ mode, slowMoMs }: { mode: BrowserMode; slowMoMs?: number }) => {
-        const previousMode = sessionManager.getCurrentMode(site);
-
-        if (mode === "paused" && previousMode !== "paused") {
-          lock.holdForUser(site);
-        } else if (mode !== "paused" && previousMode === "paused") {
-          lock.releaseUserHold(site);
+      async ({ action, mode, slowMoMs, url: navUrl }: {
+        action: "health_check" | "screenshot" | "page_state" | "set_mode" | "navigate";
+        mode?: BrowserMode;
+        slowMoMs?: number;
+        url?: string;
+      }) => {
+        // ── health_check ───────────────────────────────────────────────────
+        if (action === "health_check") {
+          const page = await sessionManager.getPage(sessionConfig);
+          const loggedIn = await adapter.isLoggedIn(page);
+          let selectorsReport: Record<string, unknown> | undefined;
+          if (adapter.selectors) {
+            const { validateSelectors } = await import("./adapter-utils.js");
+            selectorsReport = await validateSelectors(page, adapter.selectors);
+          }
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                site,
+                mode: sessionManager.getCurrentMode(site),
+                loggedIn,
+                selectors: selectorsReport,
+                lastCallAt: lastCallAt?.toISOString(),
+                lastTool,
+              }, null, 2),
+            }],
+          };
         }
 
-        const needsHeaded = mode !== "headless";
-        const currentHeaded = previousMode !== "headless";
-        if (needsHeaded !== currentHeaded || (needsHeaded && slowMoMs !== undefined)) {
-          await sessionManager.setMode(sessionConfig, mode, slowMoMs);
+        // ── screenshot ─────────────────────────────────────────────────────
+        if (action === "screenshot") {
+          const page = await sessionManager.getPage(sessionConfig);
+          const imageContent = await screenshotToContent(page);
+          return {
+            content: [
+              { type: "text" as const, text: `Screenshot of: ${page.url()}` },
+              imageContent,
+            ],
+          };
         }
 
-        const descriptions: Record<BrowserMode, string> = {
-          headless: "Browser is now headless — fully invisible. Automation running normally.",
-          watch: slowMoMs
-            ? `Browser is now visible with ${slowMoMs}ms slow motion. Watching automation.`
-            : "Browser is now visible. You can watch automation running.",
-          paused: "Browser is visible and tool calls are queued. You have manual control. Call set_mode with headless or watch to resume.",
-        };
+        // ── page_state ─────────────────────────────────────────────────────
+        if (action === "page_state") {
+          const page = await sessionManager.getPage(sessionConfig);
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                url: page.url(),
+                title: await page.title().catch(() => ""),
+                mode: sessionManager.getCurrentMode(site),
+                isPaused: lock.isUserHolding(site),
+                wsEndpoint: sessionManager.getCdpUrl(site),
+              }, null, 2),
+            }],
+          };
+        }
 
-        return { content: [{ type: "text" as const, text: descriptions[mode] }] };
-      }
-    );
+        // ── set_mode ───────────────────────────────────────────────────────
+        if (action === "set_mode") {
+          if (!mode) return errorResult("action:set_mode requires a mode param ('headless' | 'watch' | 'paused')");
+          const previousMode = sessionManager.getCurrentMode(site);
+          if (mode === "paused" && previousMode !== "paused") {
+            lock.holdForUser(site);
+          } else if (mode !== "paused" && previousMode === "paused") {
+            lock.releaseUserHold(site);
+          }
+          const needsHeaded = mode !== "headless";
+          const currentHeaded = previousMode !== "headless";
+          if (needsHeaded !== currentHeaded || (needsHeaded && slowMoMs !== undefined)) {
+            await sessionManager.setMode(sessionConfig, mode, slowMoMs);
+          }
+          const descriptions: Record<BrowserMode, string> = {
+            headless: "Browser is now headless — fully invisible. Automation running normally.",
+            watch: slowMoMs
+              ? `Browser is now visible with ${slowMoMs}ms slow motion. Watching automation.`
+              : "Browser is now visible. You can watch automation running.",
+            paused: "Browser is visible and tool calls are queued. You have manual control. Call browser({action:'set_mode',mode:'headless'}) to resume.",
+          };
+          return { content: [{ type: "text" as const, text: descriptions[mode] }] };
+        }
 
-    // ── take_screenshot ─────────────────────────────────────────────────────
-    mcp.tool(
-      "take_screenshot",
-      "Capture the current browser page as an image. Useful for inspecting page state, debugging selectors, or seeing what the user left the browser on after pause mode.",
-      {},
-      async () => {
-        const page = await sessionManager.getPage(sessionConfig);
-        const imageContent = await screenshotToContent(page);
-        const pageUrl = page.url();
-        return {
-          content: [
-            { type: "text" as const, text: `Screenshot of: ${pageUrl}` },
-            imageContent,
-          ],
-        };
-      }
-    );
+        // ── navigate ───────────────────────────────────────────────────────
+        if (action === "navigate") {
+          if (!navUrl) return errorResult("action:navigate requires a url param");
+          const page = await sessionManager.getPage(sessionConfig);
+          await page.goto(navUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          return { content: [{ type: "text" as const, text: `Navigated to: ${page.url()}` }] };
+        }
 
-    // ── get_page_state ──────────────────────────────────────────────────────
-    mcp.tool(
-      "get_page_state",
-      [
-        "Get the current URL, title, browser mode, and CDP endpoint.",
-        "The cdpUrl (if configured via debugPort) lets external agents attach to this adapter's",
-        "already-authenticated browser session and run arbitrary Playwright code:",
-        "  const browser = await chromium.connectOverCDP(cdpUrl);",
-        "  const context = browser.contexts()[0]; // already logged in",
-        "  const page = context.pages()[0];",
-        "  // full Playwright API available",
-        "Enable by setting debugPort in your config (recommended: adapterPort + 1000).",
-      ].join("\n"),
-      {},
-      async () => {
-        const page = await sessionManager.getPage(sessionConfig);
-        const mode = sessionManager.getCurrentMode(site);
-        const wsEndpoint = sessionManager.getCdpUrl(site);
-        return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({
-              url: page.url(),
-              title: await page.title().catch(() => ""),
-              mode,
-              isPaused: lock.isUserHolding(site),
-              wsEndpoint,
-            }, null, 2),
-          }],
-        };
-      }
-    );
-
-    // ── navigate ────────────────────────────────────────────────────────────
-    mcp.tool(
-      "navigate",
-      "Navigate the browser to a URL. Intended for use in paused or watch mode to position the browser before or after manual interaction.",
-      { url: z.string().url().describe("URL to navigate to") },
-      async ({ url: navUrl }: { url: string }) => {
-        const page = await sessionManager.getPage(sessionConfig);
-        await page.goto(navUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-        return {
-          content: [{ type: "text" as const, text: `Navigated to: ${page.url()}` }],
-        };
+        return errorResult(`Unknown action: ${action as string}`);
       }
     );
 
@@ -344,60 +341,6 @@ export async function createAdapterServer(
       })
     );
 
-    mcp.prompt(
-      "workflow-raw-access",
-      `How to run custom Playwright automation against the ${adapter.site} session`,
-      async () => {
-        const cdpUrl = sessionManager.getCdpUrl(site);
-        const cdpNote = cdpUrl
-          ? `The current CDP endpoint is: \`${cdpUrl}\``
-          : `CDP is not enabled. Add \`debugPort: ${port + 1000}\` to your browserkit.config.js for this adapter.`;
-
-        return {
-          messages: [{
-            role: "user" as const,
-            content: {
-              type: "text" as const,
-              text: [
-                `# Raw Playwright access for ${adapter.site}`,
-                "",
-                "Use this when the adapter doesn't have a tool for what you need.",
-                "",
-                cdpNote,
-                "",
-                "**How to use:**",
-                "",
-                "1. Call `get_page_state()` to get the current `cdpUrl`.",
-                "",
-                "2. Write a Playwright script to `/tmp/script.js`:",
-                "```javascript",
-                "const { chromium } = require('playwright');",
-                "(async () => {",
-                `  const browser = await chromium.connectOverCDP("${cdpUrl ?? "http://127.0.0.1:PORT"}");`,
-                "  const context = browser.contexts()[0]; // already authenticated",
-                "  const page = context.pages()[0];",
-                "",
-                "  // Your automation here:",
-                "  await page.goto('https://...');",
-                "  const result = await page.$$eval('.selector', els => els.map(el => el.textContent));",
-                "  console.log(JSON.stringify(result));",
-                "",
-                "  await browser.disconnect(); // NOT close() — keeps the session alive",
-                "})();",
-                "```",
-                "",
-                "3. Execute: `node /tmp/script.js`",
-                "",
-                "4. Read stdout for results.",
-                "",
-                "**Important**: always use `browser.disconnect()`, never `browser.close()`.",
-                "Closing the browser ends the authenticated session.",
-              ].join("\n"),
-            },
-          }],
-        };
-      }
-    );
 
     // ── Page snapshot resource ───────────────────────────────────────────────
     mcp.resource(

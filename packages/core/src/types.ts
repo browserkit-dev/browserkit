@@ -55,6 +55,12 @@ export interface SessionConfig {
    * Full list: https://playwright.dev/docs/emulation#devices
    */
   deviceEmulation?: string | undefined;
+  /**
+   * Browser channel (e.g. "chrome"). Use when the persistent profile was created with
+   * real Chrome — mixing Chrome and Playwright's Chromium on the same profile causes
+   * crashes in headed mode.
+   */
+  channel?: string | undefined;
 }
 
 // ─── Adapter config (per-entry in browserkit.config.ts) ────────────────────
@@ -80,6 +86,15 @@ export interface AdapterConfig {
    * Full list: https://playwright.dev/docs/emulation#devices
    */
   deviceEmulation?: string | undefined;
+  /**
+   * Browser channel to use, e.g. "chrome" to use the system-installed Google Chrome
+   * instead of Playwright's bundled Chromium. Required when the persistent profile
+   * was first created with real Chrome (e.g. via the login script), because Chrome
+   * and Playwright's Chromium write incompatible profile formats and mixing them
+   * causes crashes when switching to headed (watch/pause) mode.
+   * Accepts: "chrome" | "chrome-beta" | "msedge" | undefined (default: Playwright Chromium)
+   */
+  channel?: string | undefined;
 }
 
 // ─── Handoff ─────────────────────────────────────────────────────────────────

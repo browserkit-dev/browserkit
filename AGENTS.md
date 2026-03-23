@@ -2,9 +2,10 @@
 
 Durable facts and correction patterns for this workspace. Updated by continual-learning.
 
-## Project: browserkit (name TBD)
+## Project: browserkit
 
-- The project name "browserkit" is disliked — user is exploring alternatives (e.g. `ferret`, `harbr`, `portkey`)
+- Project is named **browserkit** — decided and final. npm scope is `@browserkit`. GitHub org is `browserkit-dev` (`browserkit` org was taken on GitHub, available on npm).
+- GitHub repos: `browserkit-dev/browserkit` (framework — `@browserkit/core` + `@browserkit/core/testing`), `browserkit-dev/adapter-hackernews` (standalone adapter repo)
 - Language is TypeScript, not Python
 - MCP transport is HTTP (`StreamableHTTPServerTransport`), not stdio — preferred for multi-agent deployment
 - Each adapter gets its own HTTP port; each connecting MCP client gets its own `McpServer + StreamableHTTPServerTransport` pair (per-session factory inside the HTTP handler). Shared state (browser, lock, rate limiter) lives outside the McpServer.
@@ -12,6 +13,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Adapters live in external git repos as standalone packages; the monorepo's `adapter-linkedin` is a reference implementation only
 - No abstract base class for adapters — `SiteAdapter` is an interface, shared logic is standalone utility functions (composition over inheritance)
 - No Docker — headed browser + human handoff requires native display; Docker needs X11/XQuartz which breaks local-first UX
+- Correct spelling is **adapter** (not adaptor)
 
 ## Browser Lifecycle
 
@@ -29,6 +31,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - "Raw" Playwright access means exposing the CDP WebSocket URL (`wsEndpoint()`) of each adapter's browser — external agents (Claude Code, Cursor) attach to the already-authenticated session and write their own Playwright scripts via shell
 - The Playwright skill pattern: AI writes a script to `/tmp`, executes it via shell — no `run(code)` MCP tool needed
 - MCP resources use `page://${site}/snapshot` (site name dynamic) — user pushed back when the URI appeared to hardcode the adapter name
+- Testing utilities (`createTestAdapterServer`, `createTestMcpClient`) live at `@browserkit/core/testing` subpath — a separate harness package was explicitly rejected ("I don't think we need it, it should be in either adapter or in core")
 
 ## Design Process Preferences
 
@@ -41,3 +44,4 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Testing preference: all 4 layers (unit, scraping integration, MCP protocol, reliability) — user said "all of those" without hesitation; don't propose a subset
 - Bugs found during testing should be fixed inline ("fix issues on the go"), not deferred to a follow-up task
 - Adapter developers should minimize visible dependency on the framework — adapters should feel like standalone npm packages, not framework plugins
+- Documentation for AI agents building adapters is a first-class concern — README must include the full `SiteAdapter` interface, testing pattern (`@browserkit/core/testing`), and a link to the HN adapter as a reference

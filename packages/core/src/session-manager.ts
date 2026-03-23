@@ -168,10 +168,17 @@ export class SessionManager {
       fs.mkdirSync(profileDir, { recursive: true, mode: 0o700 });
       // Apply Playwright device emulation preset if configured (e.g. "Pixel 5" for Google Discover)
       const devicePreset = config.deviceEmulation ? (devices[config.deviceEmulation] ?? {}) : {};
+      // Anti-automation flags — removes navigator.webdriver and other signals that trigger
+      // bot-detection on sites like Google that refuse to sign in to "automated" browsers.
+      const antiAutomationArgs = [
+        "--disable-blink-features=AutomationControlled",
+        "--disable-infobars",
+      ];
       context = await chromium.launchPersistentContext(profileDir, {
         headless: !headed,
         slowMo,
-        args: debugArgs,
+        args: [...debugArgs, ...antiAutomationArgs],
+        ...(config.channel ? { channel: config.channel } : {}),
         ...devicePreset,
       });
     }

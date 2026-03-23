@@ -9,6 +9,8 @@ const log = getLogger("server");
 export interface ServerHandle {
   stop(): Promise<void>;
   getStatus(): Promise<DaemonStatus>;
+  /** Reload a single adapter by site name — MCP server restarts, browser session stays alive. */
+  reload(site: string): Promise<void>;
 }
 
 async function loadAdapter(packageName: string) {
@@ -20,6 +22,32 @@ async function loadAdapter(packageName: string) {
         `Package "${packageName}" does not export a valid SiteAdapter. ` +
           `Make sure it uses defineAdapter() and has a default export.`
       );
+    }
+    return adapter;
+  } catch (err: unknown) {
+    if (isModuleNotFoundError(err)) {
+      throw new Error(`Adapter package "${packageName}" is not installed.\nRun: pnpm add ${packageName}`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Force-reload an adapter module by appending a cache-busting timestamp.
+ * ESM has no require.cache — the only way to bypass the import cache is to
+ * use a different URL. A query-string suffix makes it a new specifier.
+ */
+async function reloadAdapter(packageName: string) {
+  // For file paths, append ?v=<ts>. For bare npm specifiers, this doesn't work
+  // but npm packages rarely change without a version bump, so we try anyway.
+  const cacheBust = packageName.startsWith("/") || packageName.startsWith(".")
+    ? `${packageName}?v=${Date.now()}`
+    : packageName;
+  try {
+    const mod = await import(cacheBust);
+    const adapter = mod.default ?? mod;
+    if (typeof adapter?.site !== "string" || typeof adapter?.isLoggedIn !== "function") {
+      throw new Error(`Reloaded module "${packageName}" does not export a valid SiteAdapter.`);
     }
     return adapter;
   } catch (err: unknown) {
@@ -46,6 +74,9 @@ export async function startServer(config: FrameworkConfig): Promise<ServerHandle
   }
 
   const sessionManager = new SessionManager();
+
+  // Track adapter entries alongside their handles so we can reload them
+  const adapterEntries: Array<{ packageName: string; adapterConfig: import("./types.js").AdapterConfig; port: number }> = [];
   const handles: AdapterServerHandle[] = [];
 
   let portCounter = basePort;
@@ -58,14 +89,44 @@ export async function startServer(config: FrameworkConfig): Promise<ServerHandle
       sessionManager,
     });
     handles.push(handle);
+    adapterEntries.push({ packageName, adapterConfig, port });
   }
 
   // Startup auth check — non-blocking warn
   checkStartupAuth(handles);
 
-  // Lightweight status-only sidecar (used by CLI `browserkit status`).
-  // Browser control and management is done via MCP tools on each adapter's port.
-  const statusServer = startStatusSidecar(basePort - 1, host, handles);
+  // Status sidecar with reload support
+  const statusServer = startStatusSidecar(basePort - 1, host, handles, reload);
+
+  async function reload(site: string): Promise<void> {
+    const idx = handles.findIndex((h) => h.site === site);
+    if (idx === -1) throw new Error(`No adapter with site "${site}" is running.`);
+
+    const entry = adapterEntries[idx];
+    if (!entry) throw new Error(`Adapter entry for "${site}" not found.`);
+
+    log.info({ site }, "reloading adapter — stopping MCP server (browser session preserved)");
+
+    // Stop the MCP server (browser context is owned by SessionManager, not the handle)
+    await handles[idx]!.stop();
+
+    // Re-import the adapter module with a cache-busting URL
+    log.info({ site, packageName: entry.packageName }, "re-importing adapter module");
+    const newAdapter = await reloadAdapter(entry.packageName);
+
+    // Start a fresh MCP server for this adapter on the same port
+    const newHandle = await createAdapterServer({
+      adapter: newAdapter,
+      adapterConfig: entry.adapterConfig,
+      port: entry.port,
+      host,
+      bearerToken: config.bearerToken,
+      sessionManager, // same SessionManager — browser session stays alive
+    });
+
+    handles[idx] = newHandle;
+    log.info({ site, port: entry.port }, "adapter reloaded successfully");
+  }
 
   return {
     stop: async () => {
@@ -77,6 +138,7 @@ export async function startServer(config: FrameworkConfig): Promise<ServerHandle
       const adapters = await Promise.all(handles.map((h) => h.getStatus()));
       return { pid: process.pid, startedAt: new Date(), uptimeMs: process.uptime() * 1000, adapters };
     },
+    reload,
   };
 }
 
@@ -98,23 +160,46 @@ function checkStartupAuth(handles: AdapterServerHandle[]): void {
 }
 
 /**
- * Minimal status-only HTTP sidecar for the CLI `browserkit status` command.
- * All browser control is via MCP tools — no management routes needed here.
+ * Status sidecar — serves GET /status and POST /reload/:site.
  */
-function startStatusSidecar(port: number, host: string, handles: AdapterServerHandle[]): http.Server {
+function startStatusSidecar(
+  port: number,
+  host: string,
+  handles: AdapterServerHandle[],
+  reload: (site: string) => Promise<void>
+): http.Server {
   const server = http.createServer(async (req, res) => {
-    if (req.url !== "/status" || req.method !== "GET") {
-      res.writeHead(404); res.end(); return;
+    // GET /status
+    if (req.url === "/status" && req.method === "GET") {
+      const adapters = await Promise.all(handles.map((h) => h.getStatus()));
+      const status: DaemonStatus = {
+        pid: process.pid,
+        startedAt: new Date(),
+        uptimeMs: process.uptime() * 1000,
+        adapters,
+      };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(status, null, 2));
+      return;
     }
-    const adapters = await Promise.all(handles.map((h) => h.getStatus()));
-    const status: DaemonStatus = {
-      pid: process.pid,
-      startedAt: new Date(),
-      uptimeMs: process.uptime() * 1000,
-      adapters,
-    };
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(status, null, 2));
+
+    // POST /reload/:site
+    const reloadMatch = req.url?.match(/^\/reload\/([^/]+)$/) ;
+    if (reloadMatch && req.method === "POST") {
+      const site = decodeURIComponent(reloadMatch[1] ?? "");
+      try {
+        await reload(site);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, site }));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: String(err) }));
+      }
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
   });
   server.listen(port, host, () => log.info({ port, host }, "status sidecar listening"));
   return server;

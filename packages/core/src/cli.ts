@@ -19,6 +19,8 @@ async function main(): Promise<void> {
       return cmdStart(args);
     case "login":
       return cmdLogin(args);
+    case "reload":
+      return cmdReload(args);
     case "status":
       return cmdStatus(args);
     case "config":
@@ -106,25 +108,36 @@ async function cmdLogin(args: string[]): Promise<void> {
   }
 
   const { adapter, adapterConfig } = targetAdapter;
-  const sessionManager = new SessionManager();
+
+  // Check if daemon is already running BEFORE creating SessionManager
+  // (SessionManager constructor acquires the pidfile and throws if another instance holds it)
+  const { existsSync, readFileSync } = await import("node:fs");
+  const defaultDataDir = (await import("./session-manager.js")).getDefaultDataDir();
+  const pidfilePath = `${defaultDataDir}/browserkit.pid`;
+  let serverIsRunning = false;
+  if (existsSync(pidfilePath)) {
+    const pid = parseInt(readFileSync(pidfilePath, "utf8").trim(), 10);
+    if (!isNaN(pid)) {
+      try { process.kill(pid, 0); serverIsRunning = true; } catch { /* stale pidfile */ }
+    }
+  }
+
+  // When the daemon is running, use a temporary dataDir so we don't conflict with the pidfile.
+  // The login flow (serverIsRunning=true) opens a temp browser and transfers cookies —
+  // the temp SessionManager only needs to match the profile layout, not hold the real pidfile.
+  const loginDataDir = serverIsRunning
+    ? (await import("node:os")).default.tmpdir() + "/browserkit-login-" + adapter.site + "-" + Date.now()
+    : defaultDataDir;
+
+  const sessionManager = new SessionManager({ dataDir: serverIsRunning ? loginDataDir : undefined });
   const sessionConfig = {
     site: adapter.site,
     domain: adapter.domain,
     authStrategy: adapterConfig.authStrategy ?? "persistent",
     profileDir: adapter.site,
     cdpUrl: adapterConfig.cdpUrl,
+    deviceEmulation: adapterConfig.deviceEmulation,
   };
-
-  // Detect if the daemon is already running (check pidfile)
-  const { existsSync, readFileSync } = await import("node:fs");
-  const pidfilePath = `${sessionManager.getDataDir()}/browserkit.pid`;
-  let serverIsRunning = false;
-  if (existsSync(pidfilePath)) {
-    const pid = parseInt(readFileSync(pidfilePath, "utf8").trim(), 10);
-    if (!isNaN(pid) && pid !== process.pid) {
-      try { process.kill(pid, 0); serverIsRunning = true; } catch { /* stale */ }
-    }
-  }
 
   if (serverIsRunning) {
     console.log(`\n  Daemon is running — login uses a temporary browser (no downtime).`);
@@ -156,6 +169,60 @@ async function cmdStatus(args: string[]): Promise<void> {
     console.error(`browserkit is not running (could not reach http://${host}:${statusPort}/status)`);
     process.exit(1);
   }
+}
+
+// ─── reload ───────────────────────────────────────────────────────────────────
+
+async function cmdReload(args: string[]): Promise<void> {
+  const site = args[0];
+  if (!site) {
+    console.error("Usage: browserkit reload <site>");
+    process.exit(1);
+  }
+
+  const config = await resolveConfig(args.slice(1));
+  const host = config.host ?? "127.0.0.1";
+  const statusPort = (config.basePort ?? 3847) - 1;
+
+  console.log(`\n  Reloading adapter "${site}"...`);
+
+  await new Promise<void>((resolve, reject) => {
+    const body = "";
+    const req = http.request(
+      {
+        hostname: host,
+        port: statusPort,
+        path: `/reload/${encodeURIComponent(site)}`,
+        method: "POST",
+        headers: { "Content-Length": 0 },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk: string) => (data += chunk));
+        res.on("end", () => {
+          try {
+            const result = JSON.parse(data) as { ok: boolean; error?: string };
+            if (result.ok) {
+              console.log(`  ✓ "${site}" reloaded — MCP server restarted, browser session preserved.\n`);
+              resolve();
+            } else {
+              console.error(`  Reload failed: ${result.error ?? "unknown error"}`);
+              process.exit(1);
+            }
+          } catch {
+            reject(new Error(`Unexpected response: ${data}`));
+          }
+        });
+      }
+    );
+    req.on("error", () => {
+      console.error(`  browserkit is not running. Start it with: browserkit start`);
+      process.exit(1);
+    });
+    req.setTimeout(60_000, () => reject(new Error("Reload request timed out")));
+    req.write(body);
+    req.end();
+  });
 }
 
 function fetchStatus(host: string, port: number): Promise<DaemonStatus> {
@@ -288,7 +355,8 @@ Usage: browserkit <command> [options]
 
 Commands:
   start                 Start the browserkit daemon
-  login <site>          Log in to a site
+  login <site>          Log in to a site (one-time, saves session)
+  reload <site>         Reload a single adapter without restarting the daemon
   status                Show daemon status
   config cursor         Generate Cursor MCP settings JSON
   create-adapter <name> Scaffold a new standalone adapter package
@@ -301,6 +369,7 @@ Options (start):
 Examples:
   browserkit start --adapter @browserkit/adapter-linkedin
   browserkit login linkedin
+  browserkit reload google-discover
   browserkit status
   browserkit config cursor
   browserkit create-adapter my-site
