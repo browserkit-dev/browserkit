@@ -48,6 +48,7 @@ Configure your MCP client (Cursor, Claude Desktop, etc.):
 |---|---|---|---|
 | [`@browserkit/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) | Hacker News | none | `get_top`, `get_new`, `get_ask`, `get_show`, `get_comments` |
 | [`@browserkit/adapter-linkedin`](https://github.com/browserkit-dev/adapter-linkedin) | LinkedIn | required | `get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed` |
+| [`@browserkit/adapter-reddit`](https://github.com/browserkit-dev/adapter-reddit) | Reddit | none | `get_subreddit`, `get_thread`, `search`, `get_user` |
 
 ---
 
@@ -313,7 +314,6 @@ Community contributions welcome — use `browserkit create-adapter <name>` to sc
 | Site | Why browserkit | Proposed tools | Status |
 |---|---|---|---|
 | **Twitter / X** | API is $100/mo+; most personal accounts have no API access | `get_feed`, `search`, `get_thread`, `get_bookmarks`, `get_dms`, `get_lists` | open |
-| **Reddit** | API went paid in 2023; browser bypasses rate limits | `get_feed`, `get_subreddit`, `get_thread`, `search`, `get_saved` | open |
 | **Amazon** | No consumer API at all | `get_orders`, `search_products`, `get_product`, `get_wishlist`, `track_price` | open |
 | **Airbnb** | No public API; useful for trip-planning agents | `search_listings`, `get_listing`, `get_bookings`, `get_messages` | open |
 | **Google Maps** | Places API is expensive per-call; browser is free | `search_nearby`, `get_place`, `get_reviews`, `get_directions` | open |
