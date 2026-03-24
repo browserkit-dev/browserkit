@@ -306,6 +306,22 @@ Users add the package name to `browserkit.config.js` — no naming convention re
 
 ---
 
+## Planned Adapters
+
+Community contributions welcome — use `browserkit create-adapter <name>` to scaffold, see [Building an Adapter](#building-an-adapter) above.
+
+| Site | Why browserkit | Proposed tools | Status |
+|---|---|---|---|
+| **Twitter / X** | API is $100/mo+; most personal accounts have no API access | `get_feed`, `search`, `get_thread`, `get_bookmarks`, `get_dms`, `get_lists` | open |
+| **Reddit** | API went paid in 2023; browser bypasses rate limits | `get_feed`, `get_subreddit`, `get_thread`, `search`, `get_saved` | open |
+| **Amazon** | No consumer API at all | `get_orders`, `search_products`, `get_product`, `get_wishlist`, `track_price` | open |
+| **Airbnb** | No public API; useful for trip-planning agents | `search_listings`, `get_listing`, `get_bookings`, `get_messages` | open |
+| **Google Maps** | Places API is expensive per-call; browser is free | `search_nearby`, `get_place`, `get_reviews`, `get_directions` | open |
+
+If you're interested in building one, open an issue on [browserkit-dev/browserkit](https://github.com/browserkit-dev/browserkit/issues) to coordinate.
+
+---
+
 ## Architecture
 
 See [ARCH.md](ARCH.md) for full architecture details.
