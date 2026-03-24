@@ -10,5 +10,6 @@ export default {
       deviceEmulation: "Pixel 7",
       channel: "chrome",
     },
+    "/Users/jzarecki/Projects/session-mcp/packages/adapter-linkedin/dist/index.js": { port: 52744, channel: "chrome" },
   },
 };

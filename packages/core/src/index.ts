@@ -38,6 +38,8 @@ export {
   detectRateLimit,
   dismissModals,
   scrollContainer,
+  isAuthBlockerUrl,
+  detectAuthBarrier,
 } from "./adapter-utils.js";
 
 // ─── Observability ────────────────────────────────────────────────────────────
