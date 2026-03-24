@@ -6,6 +6,16 @@ An open-source framework for building site-specific MCP servers that operate ove
 
 ---
 
+## Why local sessions?
+
+Most browser automation infrastructure works by running browsers in the cloud and asking you to re-authenticate there. That model works well for anonymous or company-owned accounts, but breaks down for personal ones — you wouldn't hand your LinkedIn, Gmail, or bank credentials to a third-party server.
+
+browserkit takes the opposite approach: **your machine is already authenticated everywhere.** It reuses the sessions that exist on your laptop right now, runs all browsers locally, and never sends cookies or credentials over the network. The AI gets access to your real identity on the web; nothing leaves localhost.
+
+The trade-off is intentional — browserkit is single-user and local-only by design. If you need a cloud fleet or multi-tenant access, this is not that tool.
+
+---
+
 ## Quick Start
 
 ```bash
@@ -288,7 +298,6 @@ Users add the package name to `browserkit.config.js` — no naming convention re
 See [ARCH.md](ARCH.md) for full architecture details.
 
 Key properties:
-- **Local-first**: runs on your machine, no cloud required
 - **Session-persistent**: maintains auth across tool calls and process restarts
 - **Site-specific**: deterministic selector-based tools, not DOM-guessing agents
 - **MCP-native**: each adapter is a standard HTTP MCP server
