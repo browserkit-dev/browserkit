@@ -8,7 +8,30 @@
 - Archived original brainstorm MHTML to `docs/reference/`
 - Scaffolded full AI-native project structure (CLAUDE.md, .context/, .claude/, .cursor/)
 
-## Session 4 — Google Discover adapter + core improvements (2026-03-23)
+## Session 5 — LinkedIn adapter: live testing & bug fixes (2026-03-24)
+
+### LinkedIn adapter bugs fixed
+
+- **`isLoggedIn` false negative on startup**: Browser starts at `about:blank`; URL wasn't an authenticated path so `isLoggedIn` always returned `false`. Fix: navigate to `linkedin.com/feed/` first if on `about:blank` — cookies load and auth check succeeds. LinkedIn now shows `logged in` in the daemon startup banner.
+- **`get_feed` selector failure**: `div[data-id^="urn:li:activity"]` stopped matching LinkedIn's current DOM. Rewrote feed extraction using `page.evaluate()` to find post cards by walking up from social action buttons (`aria-label` containing "like"/"comment"/"repost"/"send") — resilient to React component version changes and class-name churn.
+- **Updated `selectors.ts`**: Expanded `feedPost` to a multi-selector comma list as fallback; updated `feedPostAuthorName`, `feedPostText`, `feedPostReactions` with modern class alternatives.
+
+### Verified working tools (all 7)
+
+- `get_feed` — returns real feed posts with author, text, context blocks
+- `get_person_profile` — works (Bill Gates test: returns `main_profile`, `experience`, etc.)
+- `search_people` — works (`keywords` param; returns paginated LinkedIn search results)
+- `search_jobs` — works (returns job listings with title, company, location)
+- `get_company_profile`, `get_company_posts`, `get_job_details` — not yet live-tested but share same `extractPage`/`extractOverlay` path
+
+### Daemon status at end of session
+
+All 3 adapters logged in and serving tools:
+- `hackernews` → port 52741 ✓
+- `google-discover` → port 52743 ✓
+- `linkedin` → port 52744 ✓
+
+
 
 ### Core framework additions
 

@@ -542,6 +542,11 @@ export async function createAdapterServer(
       let loggedIn = false;
       try {
         const page = await sessionManager.getPage(sessionConfig);
+        // On fresh launch the page is at about:blank — navigate to the site
+        // first so URL-based isLoggedIn checks work correctly.
+        if (page.url() === "about:blank" && adapter.loginUrl) {
+          await page.goto(adapter.loginUrl, { waitUntil: "domcontentloaded", timeout: 20_000 }).catch(() => {});
+        }
         loggedIn = await adapter.isLoggedIn(page);
       } catch { loggedIn = false; }
       return {

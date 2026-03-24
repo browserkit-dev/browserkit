@@ -133,15 +133,25 @@ function selectorsTs(name: string): string {
   return `/**
  * DOM selectors for ${name}.
  *
- * Primary strategy: getByRole / getByTestId (resilient to DOM changes).
- * CSS selectors as fallback only.
+ * Selector stability hierarchy (most → least stable):
+ *   1. ARIA attributes: [aria-label="..."], [role="..."]  ← prefer these
+ *   2. Test IDs: [data-testid="..."], [data-test-id="..."]
+ *   3. Semantic HTML: button, nav, article, main
+ *   4. CSS class names / data-* attributes             ← avoid, rotate frequently
  *
- * Validate with: browserkit test-selectors ${name}
- * Update fixtures with: browserkit test-selectors ${name} --snapshot
+ * For feed/list pages on JS-heavy apps (LinkedIn, Twitter, etc.) prefer
+ * walking up from stable ARIA-labelled action buttons rather than targeting
+ * the card container directly by class name:
+ *
+ *   const cards = Array.from(document.querySelectorAll('button[aria-label*="like"]'))
+ *     .map(btn => { let el = btn; while (el.offsetHeight < 150) el = el.parentElement; return el; })
+ *
+ * Validate selectors against a live page with: browserkit test-selectors ${name}
  */
 
 export const SELECTORS = {
-  // Auth detection
+  // Auth detection — pick an element that is ONLY visible when logged in
+  // Prefer ARIA/role selectors: e.g. 'nav[aria-label="Main"]', '[data-test-id="nav-top"]'
   loggedInIndicator: "TODO: selector for element that only appears when logged in",
   loginForm: "TODO: selector for login form",
 
@@ -165,6 +175,8 @@ export default defineAdapter({
   rateLimit: { minDelayMs: 2000 },
 
   async isLoggedIn(page: Page): Promise<boolean> {
+    // The framework navigates to loginUrl before calling this if the
+    // browser is at about:blank, so page.url() is reliable here.
     try {
       return await page.locator(SELECTORS.loggedInIndicator).isVisible({ timeout: 3000 });
     } catch {
@@ -188,7 +200,19 @@ export default defineAdapter({
           timeout: 30_000,
         });
 
-        // TODO: implement extraction logic
+        // Prefer page.evaluate() + innerText over CSS class selectors.
+        // CSS classes rotate on JS-heavy apps; innerText and ARIA labels are stable.
+        // Example: get items from a list by walking up from action buttons:
+        //
+        //   const items = await page.evaluate((max) => {
+        //     return Array.from(document.querySelectorAll('button[aria-label*="save"]'))
+        //       .slice(0, max)
+        //       .map(btn => {
+        //         let el = btn as HTMLElement;
+        //         while (el.parentElement && el.offsetHeight < 100) el = el.parentElement;
+        //         return el.innerText.trim().slice(0, 500);
+        //       });
+        //   }, count);
         const results: unknown[] = [];
 
         return {

@@ -40,6 +40,11 @@ export class SessionManager {
   async isSessionValid(config: SessionConfig, adapter: SiteAdapter): Promise<boolean> {
     try {
       const page = await this.getPage(config);
+      // Navigate to the site if the browser hasn't loaded any page yet,
+      // otherwise URL-based isLoggedIn checks always return false.
+      if (page.url() === "about:blank" && adapter.loginUrl) {
+        await page.goto(adapter.loginUrl, { waitUntil: "domcontentloaded", timeout: 20_000 }).catch(() => {});
+      }
       return await adapter.isLoggedIn(page);
     } catch {
       return false;
