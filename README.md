@@ -19,11 +19,11 @@ The trade-off is intentional — browserkit is single-user and local-only by des
 ## Quick Start
 
 ```bash
-# Install core + an adapter
-pnpm add @browserkit/core @browserkit/adapter-hackernews
+# Install core + adapters
+pnpm add @browserkit/core @browserkit/adapter-hackernews @browserkit/adapter-linkedin
 
-# Log in once (for sites that need auth)
-browserkit login hackernews
+# Log in once per authenticated site (opens a browser window)
+browserkit login linkedin
 
 # Start the daemon
 browserkit start --config browserkit.config.js
@@ -34,12 +34,20 @@ Configure your MCP client (Cursor, Claude Desktop, etc.):
 ```json
 {
   "mcpServers": {
-    "browserkit-hackernews": {
-      "url": "http://localhost:3847/mcp"
-    }
+    "browserkit-hackernews": { "url": "http://localhost:3847/mcp" },
+    "browserkit-linkedin":   { "url": "http://localhost:3848/mcp" }
   }
 }
 ```
+
+---
+
+## Available Adapters
+
+| Package | Site | Auth | Tools |
+|---|---|---|---|
+| [`@browserkit/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) | Hacker News | none | `get_top`, `get_new`, `get_ask`, `get_show`, `get_comments` |
+| [`@browserkit/adapter-linkedin`](https://github.com/browserkit-dev/adapter-linkedin) | LinkedIn | required | `get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed` |
 
 ---
 
@@ -52,7 +60,7 @@ AI Agent (Cursor / Claude / custom)
          ↓ HTTP MCP
 browserkit daemon
   ├── hackernews  :3847  headless Chromium  (public, no auth needed)
-  ├── linkedin    :3848  headless Chromium  (authenticated)
+  ├── linkedin    :3848  headless Chrome    (authenticated, uses real Chrome)
   └── ...
 ```
 
@@ -74,9 +82,13 @@ export default {
     "@browserkit/adapter-hackernews": {
       port: 3847,
     },
-    "@someone/my-custom-adapter": {
+    "@browserkit/adapter-linkedin": {
       port: 3848,
-      debugPort: 4848,      // optional: enables raw Playwright access via CDP
+      channel: "chrome",    // use real Chrome — avoids bot detection on login
+    },
+    "@someone/my-custom-adapter": {
+      port: 3849,
+      debugPort: 4849,      // optional: enables raw Playwright access via CDP
       authStrategy: "persistent",   // "persistent" | "storage-state" | "cdp-attach"
       rateLimit: { minDelayMs: 3000 },
     },
@@ -157,9 +169,10 @@ Enable in config: `debugPort: adapterPort + 1000` (e.g. adapter on 3848 → debu
 
 ## Building an Adapter
 
-### Reference implementation
+### Reference implementations
 
-[`browserkit-dev/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) is a complete working adapter — public site, 5 tools, full 4-layer test suite. Read it first.
+- [`browserkit-dev/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) — public site, no auth, 5 tools, full 4-layer test suite. The simplest starting point.
+- [`browserkit-dev/adapter-linkedin`](https://github.com/browserkit-dev/adapter-linkedin) — authenticated site, 7 tools, `innerText` extraction strategy + ARIA-anchor feed scraping. Good reference for adapters that need login and work against DOM-churning JS apps.
 
 ### Scaffold
 
