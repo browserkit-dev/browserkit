@@ -8,7 +8,7 @@ An open-source framework for building site-specific MCP servers that operate ove
 
 ## Why local sessions?
 
-Most browser automation infrastructure works by running browsers in the cloud and asking you to re-authenticate there. That model works well for anonymous or company-owned accounts, but breaks down for personal ones — you wouldn't hand your LinkedIn, Gmail, or bank credentials to a third-party server.
+Cloud browser automation services work by running browsers on their servers and asking you to re-authenticate there. That model works well for anonymous or company-owned accounts, but breaks down for personal ones — you wouldn't hand your LinkedIn, Gmail, or bank credentials to a third-party server.
 
 browserkit takes the opposite approach: **your machine is already authenticated everywhere.** It reuses the sessions that exist on your laptop right now, runs all browsers locally, and never sends cookies or credentials over the network. The AI gets access to your real identity on the web; nothing leaves localhost.
 
