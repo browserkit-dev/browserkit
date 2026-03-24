@@ -1,8 +1,8 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import type { Page, BrowserContext, Cookie } from "playwright";
-import { chromium, devices } from "playwright";
+import type { Page, BrowserContext, Cookie } from "patchright";
+import { chromium, devices } from "patchright";
 import { getLogger } from "./logger.js";
 import type { SessionConfig, SiteAdapter, BrowserMode } from "./types.js";
 

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import type { Page } from "playwright";
+import type { Page } from "patchright";
 import type {
   SiteAdapter,
   AdapterConfig,
@@ -15,7 +15,7 @@ import { SessionManager } from "./session-manager.js";
 import { LockManager } from "./lock-manager.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { buildHandoffResult, handleAuthFailure, isBackgroundLoginInProgress } from "./human-handoff.js";
-import { screenshotOnError, screenshotToContent } from "./adapter-utils.js";
+import { screenshotOnError, screenshotToContent, detectRateLimit } from "./adapter-utils.js";
 import { getLogger } from "./logger.js";
 
 const log = getLogger("adapter-server");
@@ -97,6 +97,9 @@ export async function createAdapterServer(
       let result: ToolResult;
       try {
         result = await tool.handler(page, input);
+        // Check for rate limiting after each tool call — throws if detected,
+        // which propagates to the outer catch and returns isError:true
+        await detectRateLimit(page);
       } catch (err) {
         log.error({ site, tool: toolName, err }, "tool handler error");
         const screenshotContent = await screenshotToContent(page).catch(() => null);

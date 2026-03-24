@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { BrowserContext, Page } from "playwright";
+import type { BrowserContext, Page } from "patchright";
 import { getLogger } from "./logger.js";
 
 const log = getLogger("observability");

@@ -1,4 +1,4 @@
-import type { Page } from "playwright";
+import type { Page } from "patchright";
 import type { ZodTypeAny } from "zod";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 

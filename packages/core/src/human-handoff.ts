@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { chromium } from "playwright";
+import { chromium } from "patchright";
 import type { HandoffResult, SiteAdapter, ToolResult } from "./types.js";
 import type { SessionManager } from "./session-manager.js";
 import type { SessionConfig } from "./types.js";

@@ -155,7 +155,7 @@ function indexTs(name: string): string {
   const loginUrl = `https://www.${domain}/login`;
   return `import { defineAdapter } from "@browserkit/core";
 import { z } from "zod";
-import type { Page } from "playwright";
+import type { Page } from "patchright";
 import { SELECTORS } from "./selectors.js";
 
 export default defineAdapter({

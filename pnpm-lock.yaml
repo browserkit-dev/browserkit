@@ -26,7 +26,7 @@ importers:
       '@types/node':
         specifier: ^22.13.14
         version: 22.19.15
-      playwright:
+      patchright:
         specifier: ^1.51.1
         version: 1.58.2
       tsx:
@@ -50,7 +50,7 @@ importers:
       '@types/node':
         specifier: ^22.13.14
         version: 22.19.15
-      playwright:
+      patchright:
         specifier: ^1.51.1
         version: 1.58.2
       tsx:
@@ -71,12 +71,12 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.2
         version: 1.27.1(zod@3.25.76)
+      patchright:
+        specifier: ^1.51.1
+        version: 1.58.2
       pino:
         specifier: ^9.6.0
         version: 9.14.0
-      playwright:
-        specifier: ^1.51.1
-        version: 1.58.2
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -777,6 +777,16 @@ packages:
     resolution: {integrity: sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==}
     engines: {node: '>= 0.8'}
 
+  patchright-core@1.58.2:
+    resolution: {integrity: sha512-f3r0u6as+4nd0Vmr4ndH/zwijMHj7ECxelSa5iMeIJPxtLOwbo22LQPC1qjZZtSIhAVzUDStx4nw/BW3MqhJIQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  patchright@1.58.2:
+    resolution: {integrity: sha512-B1pufT2A5uZKL4e5/s2cykUo4RpVupHfJ8eTvuS560D/B7H8McjLzN9n6ruYFIi5/e17WJL428bFMUOEgPL5OQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   path-key@3.1.1:
     resolution: {integrity: sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==}
     engines: {node: '>=8'}
@@ -811,16 +821,6 @@ packages:
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
-
-  playwright-core@1.58.2:
-    resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
-    engines: {node: '>=18'}
-    hasBin: true
-
-  playwright@1.58.2:
-    resolution: {integrity: sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   postcss@8.5.8:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
@@ -1646,6 +1646,14 @@ snapshots:
 
   parseurl@1.3.3: {}
 
+  patchright-core@1.58.2: {}
+
+  patchright@1.58.2:
+    dependencies:
+      patchright-core: 1.58.2
+    optionalDependencies:
+      fsevents: 2.3.2
+
   path-key@3.1.1: {}
 
   path-to-regexp@8.3.0: {}
@@ -1679,14 +1687,6 @@ snapshots:
       thread-stream: 3.1.0
 
   pkce-challenge@5.0.1: {}
-
-  playwright-core@1.58.2: {}
-
-  playwright@1.58.2:
-    dependencies:
-      playwright-core: 1.58.2
-    optionalDependencies:
-      fsevents: 2.3.2
 
   postcss@8.5.8:
     dependencies:

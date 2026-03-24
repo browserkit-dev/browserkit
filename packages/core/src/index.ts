@@ -35,6 +35,9 @@ export {
   extractByRole,
   screenshotToContent,
   screenshotOnError,
+  detectRateLimit,
+  dismissModals,
+  scrollContainer,
 } from "./adapter-utils.js";
 
 // ─── Observability ────────────────────────────────────────────────────────────
