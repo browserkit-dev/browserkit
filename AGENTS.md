@@ -5,13 +5,13 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 ## Project: browserkit
 
 - Project is named **browserkit** — decided and final. npm scope is `@browserkit`. GitHub org is `browserkit-dev` (`browserkit` org was taken on GitHub, available on npm).
-- GitHub repos: `browserkit-dev/browserkit` (framework — `@browserkit/core` + `@browserkit/core/testing`), `browserkit-dev/adapter-hackernews` (standalone adapter repo), `browserkit-dev/adapter-google-discover` (private — not ready)
+- GitHub repos: `browserkit-dev/browserkit` (framework — `@browserkit/core` + `@browserkit/core/testing`), `browserkit-dev/adapter-hackernews`, `browserkit-dev/adapter-google-discover`, `browserkit-dev/adapter-linkedin` — all standalone public repos
 - Language is TypeScript, not Python
 - MCP transport is HTTP (`StreamableHTTPServerTransport`), not stdio — preferred for multi-agent deployment
 - Each adapter gets its own HTTP port; each connecting MCP client gets its own `McpServer + StreamableHTTPServerTransport` pair (per-session factory inside the HTTP handler). Shared state (browser, lock, rate limiter) lives outside the McpServer.
 - All adapters share one daemon process — restarting the daemon to reload one adapter takes all adapters down. Use `browserkit reload <site>` to restart just one adapter's MCP server without stopping the daemon (browser session preserved).
 - Adapter packages are plain npm packages with no naming convention — config keys are npm package names, resolved via `require(key)`
-- Adapters live in external git repos as standalone packages; the monorepo's `adapter-linkedin` is a reference implementation only
+- Adapters live in external git repos as standalone packages; the monorepo's `adapter-linkedin` is gitignored (local dev copy of the published repo)
 - No abstract base class for adapters — `SiteAdapter` is an interface, shared logic is standalone utility functions (composition over inheritance)
 - No Docker — headed browser + human handoff requires native display; Docker needs X11/XQuartz which breaks local-first UX
 - Correct spelling is **adapter** (not adaptor)
@@ -35,7 +35,12 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Testing utilities (`createTestAdapterServer`, `createTestMcpClient`) live at `@browserkit/core/testing` subpath — a separate harness package was explicitly rejected ("I don't think we need it, it should be in either adapter or in core")
 - Real Chrome (`channel: "chrome"`) is required for Google-based adapters — Playwright's bundled Chromium is blocked by Google's login with "This browser or app may not be secure". `isLoggedIn` must NOT navigate during login polling or it redirects the user away from the sign-in page.
 - Google Discover has NO infinite scroll in automated browser contexts — confirmed with Pixel 5, Pixel 7, both headless and watch mode, both `window.scrollBy` and `mouse.wheel`. ~10 articles is the practical ceiling per call. Do NOT mention this limitation in marketing content.
-- Patchright (drop-in Playwright replacement) is the next step for LinkedIn adapter — removes `Runtime.enable` CDP leak and other automation signals that authenticated sites detect. `channel: "chrome"` already covers some of the same ground for Google.
+- Patchright (drop-in Playwright replacement) **has been implemented** in core and all adapters — removes `Runtime.enable` CDP leak, `Console.enable` leak, and `--enable-automation` flag. Same API as Playwright; just change the import. `channel: "chrome"` still recommended on top of Patchright for Google-based adapters.
+- LinkedIn adapter was rebuilt 1:1 with `stickerdaniel/linkedin-mcp-server`: innerText + URL navigation (not DOM selectors), section-based architecture, 7 tools (`get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed`). `isAuthBlockerUrl` + `detectAuthBarrier` promoted to `@browserkit/core` as generic utilities.
+- CSS class selectors break on JS-heavy apps (LinkedIn proved this) — prefer `page.evaluate()` + ARIA-label walk-up from stable action buttons, or raw `innerText` extraction. This is now in the `create-adapter` scaffold template.
+- Framework navigates to `adapter.loginUrl` before calling `isLoggedIn()` when browser is at `about:blank` — adapters do NOT need to handle this themselves
+- `warm_up_browser()` (visiting google/wiki/github before login) was evaluated from stickerdaniel's code — decided as "nice to have" for first-time login, not adopted yet
+- `browserkit login <site>` is blocked by the `CI=1` env var that Cursor sets — must run as `CI="" node packages/core/dist/cli.js login <site>` to open a headed browser from within Cursor terminal
 
 ## Design Process Preferences
 
@@ -52,3 +57,9 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Cursor uses `.cursor/mcp.json` for project-level MCP config; `.mcp.json` is the Claude Code format — these are different files serving different tools
 - E2E install tests are wanted: spin up a clean environment, install core + HN adapter, verify tools work, install Google Discover adapter, verify it starts but returns auth error (no login)
 - Squash CI fix commits to keep git history clean — user noticed multiple "fix CI" commits and asked to squash
+- Adapter roadmap priority: Reddit → Twitter/X (flagship, hardest bot detection) → Amazon (no consumer API at all) → Airbnb, Google Maps, Booking.com — all documented in the main README as planned adapters.
+- Reddit adapter is two-phase: Phase 1 = unauthenticated `old.reddit.com` (stable HTML class names, no login required); Phase 2 = authenticated (separate plan file). Target `old.reddit.com` exclusively — new Reddit is a React SPA with aggressive DOM churn.
+- Booking.com adapter was started (plan + Phase 1 architecture); user preference is to plan architecture first, then implement.
+- Phased adapter development pattern: Phase 1 is unauthenticated/mock, Phase 2 is authenticated/live. Add verification gates between phases.
+- Live scraping tests should run in GitHub CI via an external browser service (desired; specific service not yet chosen).
+- The main browserkit README doubles as the project's public-facing "blogpost" — user refers to it interchangeably; keep it polished and up-to-date with available + planned adapters
