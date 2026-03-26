@@ -3,6 +3,7 @@ import os from "node:os";
 import fs from "node:fs";
 import type { Page, BrowserContext, Cookie } from "patchright";
 import { chromium, devices } from "patchright";
+import { launchPersistentContext as cloakLaunchPersistentContext } from "cloakbrowser";
 import { getLogger } from "./logger.js";
 import type { SessionConfig, SiteAdapter, BrowserMode } from "./types.js";
 
@@ -114,6 +115,25 @@ export class SessionManager {
   async closeSite(site: string): Promise<void> {
     const entry = this.sessions.get(site);
     if (!entry) return;
+    // Save sticky session cookies (e.g. DataDome's `datadome` cookie) to disk
+    // before closing, so they can be restored on the next headless launch.
+    if (entry.config.antiDetection?.saveCookieDomains?.length) {
+      try {
+        const allCookies = await entry.context.cookies();
+        const toSave = allCookies.filter((c) =>
+          (entry.config.antiDetection?.saveCookieDomains ?? []).some(
+            (d) => c.domain.endsWith(d.replace(/^\./, ""))
+          )
+        );
+        if (toSave.length > 0) {
+          const savePath = path.join(this.dataDir, "profiles", site, "saved-session-cookies.json");
+          fs.writeFileSync(savePath, JSON.stringify(toSave, null, 2), { mode: 0o600 });
+          log.info({ site, cookieCount: toSave.length }, "saved sticky session cookies");
+        }
+      } catch (err) {
+        log.warn({ site, err }, "failed to save sticky session cookies");
+      }
+    }
     try { await entry.context.close(); } catch (err) { log.warn({ site, err }, "close error"); }
     this.sessions.delete(site);
   }
@@ -178,17 +198,122 @@ export class SessionManager {
       const antiAutomationArgs = [
         "--disable-blink-features=AutomationControlled",
         "--disable-infobars",
+        // Declare a primary pointer (mouse) and available pointer types at the Blink level.
+        // Without this, headless Chrome reports pointer type = none, which causes CSS
+        // (pointer: fine) to return false — a key DataDome headless detection signal.
+        // Type 4 = kFine (mouse), type 1 = kNone, type 2 = kCoarse (touch).
+        "--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2",
+        // Set a realistic window size so screen.width/height are non-zero.
+        "--window-size=1920,1080",
       ];
-      context = await chromium.launchPersistentContext(profileDir, {
-        headless: !headed,
-        slowMo,
-        args: [...debugArgs, ...antiAutomationArgs],
-        ...(config.channel ? { channel: config.channel } : {}),
-        ...devicePreset,
-      });
+
+      if (config.antiDetection?.useCloakBrowser) {
+        // CloakBrowser: stealth Chromium with 33 C++-level patches for DataDome.
+        // Uses its own Chromium binary — cannot share profiles with real Chrome.
+        // Profile dir is sibling to the standard profile: <site>-cloak
+        const cloakProfileDir = this.getProfileDir(`${config.site}-cloak`);
+        fs.mkdirSync(cloakProfileDir, { recursive: true, mode: 0o700 });
+        log.info({ site: config.site, cloakProfileDir }, "launching CloakBrowser for DataDome bypass");
+        context = await cloakLaunchPersistentContext({
+          userDataDir: cloakProfileDir,
+          headless: !headed,
+          humanize: true,
+          args: antiAutomationArgs,
+        }) as unknown as BrowserContext;
+      } else {
+        context = await chromium.launchPersistentContext(profileDir, {
+          headless: !headed,
+          slowMo,
+          // viewport: null tells Chrome to use its natural window size rather than
+          // Playwright's default 1280x720 — the fixed Playwright viewport is a known
+          // bot-detection signal (e.g. DataDome's c.js checks for it).
+          // Device presets override this with the device's specific viewport.
+          viewport: null,
+          args: [...debugArgs, ...antiAutomationArgs],
+          ...(config.channel ? { channel: config.channel } : {}),
+          ...devicePreset,
+        });
+      }
     }
 
     const page = await context.newPage();
+
+    // ── Anti-detection patches (DataDome / similar challenge-based protection) ─
+    // Applied after context creation so they cover the first navigation too.
+    //
+    // stripCOOP: strip Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy
+    //   response headers. Prevents Chromium from restarting its renderer process on
+    //   COOP-protected pages, which would reset --blink-settings pointer emulation.
+    //   Without this fix, (pointer:fine) flips to false mid-navigation on secure.booking.com.
+    //
+    // patchPointerMedia: override window.matchMedia so (pointer:fine) = true in headless.
+    //   DataDome's c.js challenge script reads this signal to classify headless Chrome as a bot.
+    //   Uses context.addInitScript so it runs in every frame and survives cross-origin navigations.
+    if (config.antiDetection?.stripCOOP) {
+      await context.route("**/*", async (route) => {
+        try {
+          const response = await route.fetch();
+          const headers = { ...response.headers() };
+          delete headers["cross-origin-opener-policy"];
+          delete headers["cross-origin-embedder-policy"];
+          await route.fulfill({ response, headers });
+        } catch {
+          await route.continue();
+        }
+      });
+    }
+    if (config.antiDetection?.patchPointerMedia) {
+      await context.addInitScript(() => {
+        // 1. Patch window.matchMedia so (pointer:fine) returns true in headless.
+        //    DataDome's c.js challenge reads this to classify headless Chrome as a bot.
+        const orig = window.matchMedia.bind(window);
+        window.matchMedia = (query: string): MediaQueryList => {
+          const mql = orig(query);
+          const q = query.replace(/\s+/g, "").toLowerCase();
+          if (q.includes("pointer:fine"))   return Object.assign(Object.create(mql), { matches: true  });
+          if (q.includes("pointer:none"))   return Object.assign(Object.create(mql), { matches: false });
+          if (q.includes("pointer:coarse")) return Object.assign(Object.create(mql), { matches: false });
+          return mql;
+        };
+
+        // 2. Patch window.outerHeight / outerWidth to simulate a real browser toolbar.
+        //    In headless Chrome, outerHeight === innerHeight (no toolbar rendered).
+        //    DataDome's c.js checks this: zero toolbar height = headless signal.
+        //    Real Chrome on macOS has ~74px of toolbar (address bar + tabs).
+        const TOOLBAR_HEIGHT = 74;
+        try {
+          Object.defineProperty(window, "outerHeight", {
+            get: () => window.innerHeight + TOOLBAR_HEIGHT,
+            configurable: true,
+          });
+          Object.defineProperty(window, "outerWidth", {
+            get: () => window.innerWidth,
+            configurable: true,
+          });
+        } catch { /* ignore — may already be non-configurable */ }
+      });
+    }
+
+    // ── Restore sticky session cookies ────────────────────────────────────────
+    // DataDome and similar protection systems use session cookies (no expiry) that
+    // Chrome doesn't persist to disk. We save them manually before closing and
+    // restore them here so headless launches don't start from scratch every time.
+    if (config.antiDetection?.saveCookieDomains?.length) {
+      const savePath = path.join(this.dataDir, "profiles", config.site, "saved-session-cookies.json");
+      if (fs.existsSync(savePath)) {
+        try {
+          const saved = JSON.parse(fs.readFileSync(savePath, "utf8")) as Array<Record<string, unknown>>;
+          if (saved.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await context.addCookies(saved as any);
+            log.info({ site: config.site, cookieCount: saved.length }, "restored sticky session cookies");
+          }
+        } catch (err) {
+          log.warn({ site: config.site, err }, "failed to restore sticky session cookies");
+        }
+      }
+    }
+
     this.sessions.set(config.site, { context, page, config, mode, slowMoMs, debugPort: config.debugPort });
     log.info({ site: config.site, mode, debugPort: config.debugPort }, "browser session ready");
     return page;

@@ -11,5 +11,15 @@ export default {
       channel: "chrome",
     },
     "/Users/jzarecki/Projects/session-mcp/packages/adapter-linkedin/dist/index.js": { port: 52744, channel: "chrome" },
+    "/Users/jzarecki/Projects/browserkit-adapter-booking/dist/index.js": {
+      port: 52745,
+      // channel: "chrome" — NOT used with CloakBrowser (different binary, incompatible profiles)
+      antiDetection: {
+        stripCOOP: true,
+        patchPointerMedia: true,
+        saveCookieDomains: [".booking.com", "secure.booking.com", "captcha-delivery.com"],
+        useCloakBrowser: true,
+      },
+    },
   },
 };
