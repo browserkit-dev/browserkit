@@ -3,7 +3,6 @@ import os from "node:os";
 import fs from "node:fs";
 import type { Page, BrowserContext, Cookie } from "patchright";
 import { chromium, devices } from "patchright";
-import { launchPersistentContext as cloakLaunchPersistentContext } from "cloakbrowser";
 import { getLogger } from "./logger.js";
 import type { SessionConfig, SiteAdapter, BrowserMode } from "./types.js";
 
@@ -211,10 +210,13 @@ export class SessionManager {
         // CloakBrowser: stealth Chromium with 33 C++-level patches for DataDome.
         // Uses its own Chromium binary — cannot share profiles with real Chrome.
         // Profile dir is sibling to the standard profile: <site>-cloak
+        // Lazy import — only loaded when useCloakBrowser is configured, so adapters
+        // that don't need it never trigger the ~140MB binary download on install.
+        const { launchPersistentContext: cloakLaunch } = await import("cloakbrowser");
         const cloakProfileDir = this.getProfileDir(`${config.site}-cloak`);
         fs.mkdirSync(cloakProfileDir, { recursive: true, mode: 0o700 });
         log.info({ site: config.site, cloakProfileDir }, "launching CloakBrowser for DataDome bypass");
-        context = await cloakLaunchPersistentContext({
+        context = await cloakLaunch({
           userDataDir: cloakProfileDir,
           headless: !headed,
           humanize: true,
