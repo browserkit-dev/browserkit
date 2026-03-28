@@ -30,7 +30,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Browser mode switching (`headless` / `watch` / `paused`), screenshot, page state, and navigate are consolidated into a single `browser` MCP tool with an `action` parameter — user explicitly asked to reduce tool count ("too many tools"); do NOT revert to 5 separate management tools
 - Management tools bypass the LockManager; regular automation tools go through it
 - "Raw" Playwright access means exposing the CDP WebSocket URL (`wsEndpoint()`) of each adapter's browser — external agents (Claude Code, Cursor) attach to the already-authenticated session and write their own Playwright scripts via shell
-- The Playwright skill pattern: AI writes a script to `/tmp`, executes it via shell — no `run(code)` MCP tool needed
+- The Playwright skill pattern: AI writes a script to `/tmp`, executes it via shell — primary approach for shell-capable clients (Cursor, Claude Code); opt-in `run_script` MCP tool planned for clients without shell access (Claude Desktop)
 - MCP resources use `page://${site}/snapshot` (site name dynamic) — user pushed back when the URI appeared to hardcode the adapter name
 - Testing utilities (`createTestAdapterServer`, `createTestMcpClient`) live at `@browserkit/core/testing` subpath — a separate harness package was explicitly rejected ("I don't think we need it, it should be in either adapter or in core")
 - Real Chrome (`channel: "chrome"`) is required for Google-based adapters — Playwright's bundled Chromium is blocked by Google's login with "This browser or app may not be secure". `isLoggedIn` must NOT navigate during login polling or it redirects the user away from the sign-in page.
@@ -41,6 +41,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Framework navigates to `adapter.loginUrl` before calling `isLoggedIn()` when browser is at `about:blank` — adapters do NOT need to handle this themselves
 - `warm_up_browser()` (visiting google/wiki/github before login) was evaluated from stickerdaniel's code — decided as "nice to have" for first-time login, not adopted yet
 - `browserkit login <site>` is blocked by the `CI=1` env var that Cursor sets — must run as `CI="" node packages/core/dist/cli.js login <site>` to open a headed browser from within Cursor terminal
+- `browser` tool `snapshot` action is planned — returns incremental aria-snapshot diff, more token-efficient than screenshots; `page-snapshot` MCP resource already exists, the action adds diff support. Inspired by `SawyerHood/dev-browser`.
 
 ## Design Process Preferences
 
