@@ -1,5 +1,7 @@
 # browserkit
 
+[![SafeSkill 73/100](https://img.shields.io/badge/SafeSkill-73%2F100_Passes%20with%20Notes-yellow)](https://safeskill.dev/scan/browserkit-dev-browserkit)
+
 An open-source framework for building site-specific MCP servers that operate over real, authenticated user browser sessions — running locally on your machine.
 
 **Turn your logged-in browser sessions into composable, testable AI tools.**
