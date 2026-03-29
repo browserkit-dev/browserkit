@@ -57,6 +57,7 @@ export async function createAdapterServer(
     debugPort: adapterConfig.debugPort,
     deviceEmulation: adapterConfig.deviceEmulation,
     channel: adapterConfig.channel,
+    antiDetection: adapterConfig.antiDetection,
   };
 
   let lastCallAt: Date | undefined;

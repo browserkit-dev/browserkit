@@ -88,6 +88,15 @@ export interface SessionConfig {
    * crashes in headed mode.
    */
   channel?: string | undefined;
+  /**
+   * Anti-bot-detection patches. See AdapterConfig.antiDetection for docs.
+   */
+  antiDetection?: {
+    stripCOOP?: boolean | undefined;
+    patchPointerMedia?: boolean | undefined;
+    saveCookieDomains?: string[] | undefined;
+    useCloakBrowser?: boolean | undefined;
+  } | undefined;
 }
 
 // ─── Adapter config (per-entry in browserkit.config.ts) ────────────────────
@@ -122,6 +131,38 @@ export interface AdapterConfig {
    * Accepts: "chrome" | "chrome-beta" | "msedge" | undefined (default: Playwright Chromium)
    */
   channel?: string | undefined;
+  /**
+   * Anti-bot-detection patches for sites using DataDome or similar challenge-based
+   * protection (e.g. Booking.com's secure.booking.com).
+   *
+   * stripCOOP: Strip Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy
+   *   response headers via a context-level route interceptor. Prevents Chromium from
+   *   restarting its renderer process mid-navigation, which would reset Playwright's
+   *   --blink-settings pointer emulation and cause (pointer:fine) to flip to false.
+   *
+   * patchPointerMedia: Override window.matchMedia in every frame so that
+   *   (pointer:fine) returns true in headless. DataDome's challenge script (c.js)
+   *   reads this signal to classify headless Chrome as a bot.
+   */
+  antiDetection?: {
+    stripCOOP?: boolean | undefined;
+    patchPointerMedia?: boolean | undefined;
+    /**
+     * Domains whose cookies should be saved to disk before the browser closes
+     * and restored on the next launch. Use for session cookies that DataDome
+     * or similar systems set but Chrome doesn't persist natively (e.g. `datadome`).
+     * Example: [".booking.com", "captcha-delivery.com"]
+     */
+    saveCookieDomains?: string[] | undefined;
+    /**
+     * Use CloakBrowser (stealth Chromium with 33 C++-level patches) instead of
+     * Patchright. Downloads ~140MB on first use, cached at ~/.cloakbrowser/.
+     * Required for sites using DataDome (e.g. Booking.com's secure subdomain).
+     * NOTE: incompatible with channel:"chrome" — uses its own Chromium binary.
+     * Profiles created with real Chrome will not work; use a separate profileDir.
+     */
+    useCloakBrowser?: boolean | undefined;
+  } | undefined;
 }
 
 // ─── Handoff ─────────────────────────────────────────────────────────────────

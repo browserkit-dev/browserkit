@@ -11,5 +11,12 @@ export default {
       channel: "chrome",
     },
     "/Users/jzarecki/Projects/session-mcp/packages/adapter-linkedin/dist/index.js": { port: 52744, channel: "chrome" },
+    "/Users/jzarecki/Projects/browserkit-adapter-booking/dist/index.js": {
+      port: 52745,
+      // channel: "chrome" not used — CloakBrowser uses its own Chromium binary
+      antiDetection: {
+        useCloakBrowser: true,  // CloakBrowser's 33 C++ patches handle everything DataDome checks
+      },
+    },
   },
 };
