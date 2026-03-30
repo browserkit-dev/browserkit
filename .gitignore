@@ -13,9 +13,6 @@ __pycache__/
 *.pyc
 .venv/
 
-# agent-check output — runtime, not for commits
-agent-check-results.json
-
 # OS
 .DS_Store
 

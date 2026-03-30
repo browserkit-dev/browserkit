@@ -2,4 +2,3 @@ packages:
   - "packages/core"
   - "packages/adapter-hackernews"
   - "packages/adapter-linkedin"
-  - "packages/adapter-rescue-flights"

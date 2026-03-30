@@ -49,7 +49,6 @@ Configure your MCP client (Cursor, Claude Desktop, etc.):
 | [`@browserkit/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) | Hacker News | none | `get_top`, `get_new`, `get_ask`, `get_show`, `get_comments` |
 | [`@browserkit/adapter-linkedin`](https://github.com/browserkit-dev/adapter-linkedin) | LinkedIn | required | `get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed` |
 | [`@browserkit/adapter-reddit`](https://github.com/browserkit-dev/adapter-reddit) | Reddit | none | `get_subreddit`, `get_thread`, `search`, `get_user` |
-| `@browserkit/adapter-rescue-flights` ([jonzarecki](https://github.com/jonzarecki/adapter-rescue-flights)) | El Al + Israir | none | `get_elal_flights`, `get_israir_flights` |
 
 ---
 
