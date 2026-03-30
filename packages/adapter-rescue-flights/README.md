@@ -1,6 +1,6 @@
 # @browserkit/adapter-rescue-flights
 
-A [browserkit](https://github.com/browserkit-dev/browserkit) adapter that queries real-time rescue flight availability from **El Al** and **Israir** — two Israeli airlines that have been operating emergency rescue flights since October 2023.
+A [browserkit](https://github.com/browserkit-dev/browserkit) adapter that **consistently and reliably** queries real-time rescue flight availability from **El Al** and **Israir** — two Israeli airlines that have been operating emergency rescue flights since March 2025.
 
 > **Repo:** [jonzarecki/adapter-rescue-flights](https://github.com/jonzarecki/adapter-rescue-flights)
 
@@ -23,6 +23,11 @@ Both tools require no login — the pages are publicly accessible.
 3. For flights with available seats, opens parallel search pages and intercepts the `FLIGHTS` API response to get exact flight numbers and departure times
 
 > The Israir APIs (`/api/results/priceBar`, `/api/search/FLIGHTS`) are called via `page.evaluate()` from within the browser context — direct Node.js `fetch` is rejected by Imperva due to TLS fingerprinting.
+
+**Reliability notes:**
+- El Al results are verified by visual comparison against the live page on every run (see `make agent-check`)
+- Israir seat counts come directly from the internal `priceBar` JSON API — not fragile HTML parsing
+- Both scrapers handle the most common failure modes: Angular virtual-scroll recycling (El Al), Imperva bot protection (Israir), SPA routing without `<a href>` links (Israir listing), and dynamic session tokens
 
 ## Setup
 
