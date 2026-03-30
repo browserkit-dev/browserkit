@@ -66,6 +66,30 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
 
+  packages/adapter-rescue-flights:
+    devDependencies:
+      '@browserkit/core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^22.13.14
+        version: 22.19.15
+      patchright:
+        specifier: ^1.51.1
+        version: 1.58.2
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.9
+        version: 3.2.4(@types/node@22.19.15)(tsx@4.21.0)
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+
   packages/core:
     dependencies:
       '@modelcontextprotocol/sdk':

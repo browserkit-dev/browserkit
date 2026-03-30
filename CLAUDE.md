@@ -35,6 +35,20 @@ TBD — stack not decided yet (TypeScript + Playwright or Python + Playwright).
 - Run `/plan` to decide what to work on next
 - Run `/review` before committing
 
+## Adapter verification (rescue-flights)
+
+After **any** change to `packages/adapter-rescue-flights/src/`, run the `/agent-check`
+command.  The agent will:
+
+1. Run `make agent-check` — builds the adapter and dumps scraper output to
+   `agent-check-results.json`.
+2. Open each live URL in the browser, take screenshots, and visually compare the
+   screenshots against the scraper JSON.
+3. Fix any discrepancy in the scraper source, then repeat from step 1.
+
+**Do not stop or commit until the visual comparison passes on all four checks.**
+The full workflow is documented in `.claude/commands/agent-check.md`.
+
 ## Forbidden patterns
 
 - No `any` types (TS) or untyped functions (Python)

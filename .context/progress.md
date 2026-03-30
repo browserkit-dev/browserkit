@@ -1,5 +1,23 @@
 # Progress
 
+## Session 6 — Rescue Flights Adapter (2026-03-30)
+
+### `packages/adapter-rescue-flights` — new public adapter
+
+Built a complete Phase 1+2 rescue flights adapter covering El Al and Israir:
+
+- **El Al scraper** (`elal.ts`): Angular CDK virtual-scroll page. Scrolls in 300px steps and collects data at each position to handle DOM node recycling. Returns flight#, departure time, and exact seat count (0 = sold out) for all flights in the next 8 days.
+- **Israir scraper** (`israir.ts`): Two-phase approach.
+  - Phase 1: reads listing page DOM for all announced rescue flights (58+ cards, two directions).
+  - Phase 2: seeds a browser session, then calls Israir's internal `priceBar` API (`/api/results/priceBar`) per unique route for seat counts + prices across all dates. For available flights, intercepts the `FLIGHTS` API (`/api/search/FLIGHTS`) via `page.route()` to get exact flight#, departure time, and per-flight seat count.
+  - Total time: ~45s for from_tel_aviv (51 flights), ~15s for to_tel_aviv listing-only.
+  - All API calls via `page.evaluate()` — Imperva/TLS fingerprint bound, Node.js fetch rejected.
+- **`run-check.ts`** and **`Makefile`**: `make agent-check` calls adapter tools over MCP, dumps `agent-check-results.json`. Agent does visual verification using browser screenshots.
+- **14 unit tests** passing; integration tests updated for Phase 2 assertions.
+- **`browserkit.config.js`** updated: port 52746.
+- **`pnpm-workspace.yaml`** updated.
+- **README.md** updated with rescue flights entry in Available Adapters table.
+
 ## Session 0 — Project Setup (2026-03-22)
 
 - Synthesized SPEC.md from ChatGPT brainstorm conversation about authenticated MCP wrappers
