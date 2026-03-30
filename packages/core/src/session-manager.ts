@@ -382,3 +382,70 @@ export function getDefaultDataDir(): string {
 function isProcessRunning(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
+
+// ── autoDiscoverCdpEndpoint ───────────────────────────────────────────────────
+
+/**
+ * Scans well-known Chrome user-data directories for a `DevToolsActivePort`
+ * file written by a running Chrome process (requires `--remote-debugging-port`).
+ *
+ * Returns the first valid CDP WebSocket URL found, e.g.
+ *   `ws://127.0.0.1:9222/devtools/browser/<id>`
+ *
+ * Throws if no running Chrome instance is discovered.
+ */
+export async function autoDiscoverCdpEndpoint(expectedPort?: number): Promise<string> {
+  const candidates: string[] = [];
+
+  switch (process.platform) {
+    case "darwin":
+      candidates.push(
+        path.join(os.homedir(), "Library", "Application Support", "Google", "Chrome"),
+        path.join(os.homedir(), "Library", "Application Support", "Google", "Chrome Beta"),
+        path.join(os.homedir(), "Library", "Application Support", "Chromium"),
+        path.join(os.homedir(), "Library", "Application Support", "BraveSoftware", "Brave-Browser"),
+      );
+      break;
+    case "linux":
+      candidates.push(
+        path.join(os.homedir(), ".config", "google-chrome"),
+        path.join(os.homedir(), ".config", "chromium"),
+      );
+      break;
+    case "win32":
+      candidates.push(
+        path.join(os.homedir(), "AppData", "Local", "Google", "Chrome", "User Data"),
+        path.join(os.homedir(), "AppData", "Local", "Chromium", "User Data"),
+      );
+      break;
+  }
+
+  for (const dir of candidates) {
+    // DevToolsActivePort can appear in the root or inside a profile subfolder
+    for (const sub of ["", "Default"]) {
+      const file = path.join(dir, sub, "DevToolsActivePort");
+      try {
+        const contents = fs.readFileSync(file, "utf8");
+        const ws = parseDevToolsActivePort(contents, expectedPort);
+        if (ws) return ws;
+      } catch {
+        // file not found or unreadable — keep scanning
+      }
+    }
+  }
+
+  throw new Error(
+    "Could not auto-discover a running Chrome instance with remote debugging enabled. " +
+    "Launch Chrome with --remote-debugging-port=<port> first, or pass the CDP URL explicitly."
+  );
+}
+
+function parseDevToolsActivePort(contents: string, expectedPort?: number): string | null {
+  const lines = contents.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const port = Number.parseInt(lines[0] ?? "", 10);
+  const wsPath = lines[1] ?? "";
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) return null;
+  if (expectedPort !== undefined && port !== expectedPort) return null;
+  if (!wsPath.startsWith("/devtools/browser/")) return null;
+  return `ws://127.0.0.1:${port}${wsPath}`;
+}

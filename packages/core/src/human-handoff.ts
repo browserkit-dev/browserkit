@@ -208,3 +208,56 @@ function raceWithTimeout(promise: Promise<boolean>, timeoutMs: number): Promise<
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// ── loginViaConnect ───────────────────────────────────────────────────────────
+
+/**
+ * Attaches to an already-running Chrome instance via CDP, checks whether the
+ * adapter reports a logged-in state, and — if so — saves the storageState to
+ * disk so `SessionManager` can pick it up on next start.
+ *
+ * Use this with `browserkit login --connect` to avoid opening a second browser
+ * when the user already has Chrome running and logged in.
+ */
+export async function loginViaConnect(
+  sessionManager: Pick<SessionManager, "getProfileDir" | "injectStorageState">,
+  config: Pick<SessionConfig, "site" | "domain" | "authStrategy" | "profileDir">,
+  adapter: Pick<SiteAdapter, "isLoggedIn">,
+  cdpEndpoint: string
+): Promise<{ outcome: "success" | "timeout"; durationMs: number }> {
+  const start = Date.now();
+
+  const browser = await chromium.connectOverCDP(cdpEndpoint);
+  try {
+    const context = browser.contexts()[0];
+    if (!context) return { outcome: "timeout", durationMs: Date.now() - start };
+
+    const pages = context.pages();
+    const page = pages[0];
+    if (!page) return { outcome: "timeout", durationMs: Date.now() - start };
+
+    const loggedIn = await adapter.isLoggedIn(page as never);
+    if (!loggedIn) return { outcome: "timeout", durationMs: Date.now() - start };
+
+    // Logged in — persist the storageState
+    const state = await context.storageState();
+    if (config.authStrategy === "storage-state") {
+      const profileDir = sessionManager.getProfileDir(config.site ?? config.profileDir);
+      fs.mkdirSync(profileDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(profileDir, "storage-state.json"),
+        JSON.stringify(state, null, 2)
+      );
+    } else {
+      await sessionManager.injectStorageState(
+        config.site,
+        state.cookies as never,
+        state.origins as never
+      );
+    }
+
+    return { outcome: "success", durationMs: Date.now() - start };
+  } finally {
+    await browser.close();
+  }
+}
