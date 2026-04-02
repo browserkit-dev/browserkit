@@ -30,7 +30,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Browser mode switching (`headless` / `watch` / `paused`), screenshot, page state, and navigate are consolidated into a single `browser` MCP tool with an `action` parameter — user explicitly asked to reduce tool count ("too many tools"); do NOT revert to 5 separate management tools
 - Management tools bypass the LockManager; regular automation tools go through it
 - "Raw" Playwright access means exposing the CDP WebSocket URL (`wsEndpoint()`) of each adapter's browser — external agents (Claude Code, Cursor) attach to the already-authenticated session and write their own Playwright scripts via shell
-- The Playwright skill pattern: AI writes a script to `/tmp`, executes it via shell — primary approach for shell-capable clients (Cursor, Claude Code); opt-in `run_script` MCP tool planned for clients without shell access (Claude Desktop)
+- The Playwright skill pattern: AI writes a script to `/tmp`, executes it via shell — primary approach for shell-capable clients (Cursor, Claude Code); opt-in `run_script` MCP tool planned for clients without shell access (Claude Desktop) — opt-in because Cursor/Claude Code already have shell, only Claude Desktop needs it
 - MCP resources use `page://${site}/snapshot` (site name dynamic) — user pushed back when the URI appeared to hardcode the adapter name
 - Testing utilities (`createTestAdapterServer`, `createTestMcpClient`) live at `@browserkit/core/testing` subpath — a separate harness package was explicitly rejected ("I don't think we need it, it should be in either adapter or in core")
 - Real Chrome (`channel: "chrome"`) is required for Google-based adapters — Playwright's bundled Chromium is blocked by Google's login with "This browser or app may not be secure". `isLoggedIn` must NOT navigate during login polling or it redirects the user away from the sign-in page.
@@ -42,6 +42,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - `warm_up_browser()` (visiting google/wiki/github before login) was evaluated from stickerdaniel's code — decided as "nice to have" for first-time login, not adopted yet
 - `browserkit login <site>` is blocked by the `CI=1` env var that Cursor sets — must run as `CI="" node packages/core/dist/cli.js login <site>` to open a headed browser from within Cursor terminal
 - `browser` tool `snapshot` action is planned — returns incremental aria-snapshot diff, more token-efficient than screenshots; `page-snapshot` MCP resource already exists, the action adds diff support. Inspired by `SawyerHood/dev-browser`.
+- CloakBrowser is an optional npm package integrated in the Booking.com adapter for DataDome/headless bot-detection bypass — opt-in via adapter config, no hard dependency on core; other stealth patches (Patchright) remain in place alongside it.
 
 ## Design Process Preferences
 
@@ -64,3 +65,15 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Phased adapter development pattern: Phase 1 is unauthenticated/mock, Phase 2 is authenticated/live. Add verification gates between phases.
 - Live scraping tests should run in GitHub CI via an external browser service (desired; specific service not yet chosen).
 - The main browserkit README doubles as the project's public-facing "blogpost" — user refers to it interchangeably; keep it polished and up-to-date with available + planned adapters
+- Personal adapters (outside the browserkit org) live in `jonzarecki/` GitHub repos — e.g., the rescue-flights adapter (Israir + El Al) is at `jonzarecki/` and must not appear in `browserkit-dev/` repos or CI
+- Verification harness convention: `make agent-check` runs browser-snapshot-based checks and loops until they pass — add to `CLAUDE.md` of each adapter and run after every change
+
+## Rescue-Flights Adapter (Personal)
+
+- Source `.ts` files are NOT in the local workspace — only compiled `dist/` JS exists at `packages/adapter-rescue-flights/dist/`; the source lives in the `jonzarecki/` GitHub repo
+- Runs locally at port 52746; registered in `.cursor/mcp.json` as `"rescue-flights"` (local config only, not committed to monorepo)
+- **Israir tool**: `detailUrl`, `flightNumber`, and `departureTime` are only populated when `availableSeats > 0`; sold-out flights return empty strings for those fields
+- **Israir `buildDetail()` bug**: guard `if (!available || !price)` is overly strict — flights with seats but no price get no booking link; fix is to change to `if (!available)` (1-line change, zero risk)
+- **El Al tool**: always returns `flightNumber` and `departureTime` for all flights (including sold-out); never returns a `detailUrl` — no booking link field exists in El Al output
+- **Coverage difference**: El Al covers the next 8 days only; Israir covers 30+ days ahead
+- El Al scraper returns `ERR_ABORTED` when called concurrently with Israir — run the two scrapers sequentially to avoid

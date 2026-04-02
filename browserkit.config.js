@@ -11,6 +11,7 @@ export default {
       channel: "chrome",
     },
     "/Users/jzarecki/Projects/session-mcp/packages/adapter-linkedin/dist/index.js": { port: 52744, channel: "chrome" },
+    "/Users/jzarecki/Projects/session-mcp/packages/adapter-rescue-flights/dist/index.js": { port: 52746 },
     "/Users/jzarecki/Projects/browserkit-adapter-booking/dist/index.js": {
       port: 52745,
       // channel: "chrome" not used — CloakBrowser uses its own Chromium binary
