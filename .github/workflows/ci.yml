@@ -48,9 +48,10 @@ jobs:
             const pkg = JSON.parse(require('fs').readFileSync('package.json'));
             pkg.devDependencies['@browserkit/core'] = 'file:../core';
             pkg.peerDependencies['@browserkit/core'] = '>=0.1.0';
-            // Remove patchright from adapter devDeps so npm deduplicates to core's
-            // instance — prevents duplicate Page types causing TS2322 errors.
-            delete pkg.devDependencies['patchright'];
+            // Pin patchright to the exact version installed in core so npm and
+            // pnpm resolve the same Page type — prevents TS2322 on handler signatures.
+            const corePr = JSON.parse(require('fs').readFileSync('../core/node_modules/patchright/package.json'));
+            pkg.devDependencies['patchright'] = corePr.version;
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
           npm install
