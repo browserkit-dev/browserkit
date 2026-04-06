@@ -16,6 +16,7 @@ import { LockManager } from "./lock-manager.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { buildHandoffResult, handleAuthFailure, isBackgroundLoginInProgress } from "./human-handoff.js";
 import { screenshotOnError, screenshotToContent, detectRateLimit } from "./adapter-utils.js";
+import { LoginError } from "./types.js";
 import { getLogger } from "./logger.js";
 
 const log = getLogger("adapter-server");
@@ -76,20 +77,30 @@ export async function createAdapterServer(
 
       let page: Page;
       try {
-        page = await sessionManager.getPage(sessionConfig);
+        page = await sessionManager.getPage(sessionConfig, adapter);
       } catch (err) {
         return errorResult(`Failed to get browser page: ${String(err)}`);
       }
 
       const loggedIn = await adapter.isLoggedIn(page);
       if (!loggedIn) {
-        const reauthed = await handleAuthFailure(sessionManager, sessionConfig, adapter);
+        let reauthed: boolean;
+        try {
+          reauthed = await handleAuthFailure(sessionManager, sessionConfig, adapter);
+        } catch (err) {
+          if (err instanceof LoginError) {
+            return errorResult(
+              `Login failed (${err.errorType}): ${err.message}`
+            );
+          }
+          throw err;
+        }
         if (!reauthed) {
           return buildHandoffResult(adapter, isBackgroundLoginInProgress(adapter.site)) as {
             content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }>;
           };
         }
-        page = await sessionManager.getPage(sessionConfig);
+        page = await sessionManager.getPage(sessionConfig, adapter);
       }
 
       const tool = adapter.tools().find((t) => t.name === toolName);

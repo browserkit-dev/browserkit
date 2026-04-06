@@ -48,6 +48,9 @@ jobs:
             const pkg = JSON.parse(require('fs').readFileSync('package.json'));
             pkg.devDependencies['@browserkit/core'] = 'file:../core';
             pkg.peerDependencies['@browserkit/core'] = '>=0.1.0';
+            // Remove patchright from adapter devDeps so npm deduplicates to core's
+            // instance — prevents duplicate Page types causing TS2322 errors.
+            delete pkg.devDependencies['patchright'];
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
           npm install

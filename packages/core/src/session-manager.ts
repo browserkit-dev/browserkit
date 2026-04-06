@@ -31,10 +31,14 @@ export class SessionManager {
   }
 
   /** Returns a ready headless Page. Launches a new browser if not already running. */
-  async getPage(config: SessionConfig): Promise<Page> {
+  async getPage(config: SessionConfig, adapter?: SiteAdapter): Promise<Page> {
     const existing = this.sessions.get(config.site);
     if (existing) return existing.page;
-    return this.launchSession(config, "headless");
+    const page = await this.launchSession(config, "headless");
+    if (adapter?.preparePage) {
+      await adapter.preparePage(page);
+    }
+    return page;
   }
 
   async isSessionValid(config: SessionConfig, adapter: SiteAdapter): Promise<boolean> {

@@ -3,9 +3,12 @@ import path from "node:path";
 import fs from "node:fs";
 import { chromium } from "patchright";
 import type { HandoffResult, SiteAdapter, ToolResult } from "./types.js";
+import { LoginError } from "./types.js";
 import type { SessionManager } from "./session-manager.js";
 import type { SessionConfig } from "./types.js";
 import { getLogger } from "./logger.js";
+import { sleep } from "./waiting.js";
+import { withLoginFlow } from "./login-flow.js";
 
 const log = getLogger("human-handoff");
 
@@ -51,6 +54,27 @@ export async function handleAuthFailure(
 ): Promise<boolean> {
   const { quickWaitMs = 15_000, totalTimeoutMs = 120_000 } = opts;
 
+  // ── Automated login (opt-in) ───────────────────────────────────────────────
+  // If the adapter provides LoginOptions, attempt a programmatic form-fill login
+  // before falling back to the human-handoff headed-browser flow.
+  if (adapter.getLoginOptions) {
+    try {
+      const page = await sessionManager.getPage(config, adapter);
+      await withLoginFlow(page, adapter.getLoginOptions());
+      log.info({ site: config.site }, "automated login succeeded");
+      return true;
+    } catch (err) {
+      if (err instanceof LoginError) {
+        // Definitive failure (bad password, blocked, change-password required).
+        // Re-throw so wrapToolCall can surface the typed error to the AI client.
+        throw err;
+      }
+      // Transient / unexpected error — fall through to human-handoff as usual.
+      log.warn({ site: config.site, err }, "automated login failed, falling back to human-handoff");
+    }
+  }
+
+  // ── Human-handoff (existing path, unchanged) ──────────────────────────────
   const existing = backgroundLogins.get(config.site);
   if (existing) {
     // Already in flight — wait a bit for it
@@ -203,10 +227,6 @@ function raceWithTimeout(promise: Promise<boolean>, timeoutMs: number): Promise<
     promise,
     sleep(timeoutMs).then(() => false),
   ]);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ── loginViaConnect ───────────────────────────────────────────────────────────

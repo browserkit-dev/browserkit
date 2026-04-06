@@ -25,7 +25,11 @@ export type {
   DaemonStatus,
   BrowserMode,
   ModeState,
+  AuthErrorType,
+  LoginOptions,
+  PossibleLoginResults,
 } from "./types.js";
+export { LoginError } from "./types.js";
 
 // ─── Utilities for adapter implementations ────────────────────────────────────
 export {
@@ -40,7 +44,47 @@ export {
   scrollContainer,
   isAuthBlockerUrl,
   detectAuthBarrier,
+  // Navigation
+  getCurrentUrl,
+  waitForRedirect,
+  waitForUrl,
+  // Element interaction
+  fillInput,
+  clickButton,
+  setValue,
+  elementPresentOnPage,
+  waitUntilElementFound,
+  waitUntilElementDisappear,
+  waitUntilIframeFound,
+  pageEval,
+  pageEvalAll,
+  // Miscellaneous browser
+  maskHeadlessUserAgent,
+  getFromSessionStorage,
+  chunk,
 } from "./adapter-utils.js";
+
+// ─── Async polling primitives ────────────────────────────────────────────────
+export {
+  TimeoutError,
+  SECOND,
+  waitUntil,
+  raceTimeout,
+  runSerial,
+  sleep,
+} from "./waiting.js";
+
+// ─── In-page fetch utilities ─────────────────────────────────────────────────
+export {
+  fetchGet,
+  fetchPost,
+  fetchGraphql,
+  fetchGetWithinPage,
+  fetchPostWithinPage,
+} from "./fetch-utils.js";
+
+// ─── Login flow (opt-in automated login) ─────────────────────────────────────
+export { withLoginFlow } from "./login-flow.js";
 
 // ─── Observability ────────────────────────────────────────────────────────────
 export { withObservability } from "./observability.js";

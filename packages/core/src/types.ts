@@ -182,6 +182,76 @@ export interface SelectorMatch {
 
 export type SelectorReport = Record<string, SelectorMatch>;
 
+// ─── Auth error taxonomy ──────────────────────────────────────────────────────
+
+/**
+ * Discriminated error types for programmatic login failures.
+ * Returned in MCP error results so AI agents can reason about the cause.
+ */
+export type AuthErrorType =
+  | "INVALID_PASSWORD"
+  | "CHANGE_PASSWORD"
+  | "ACCOUNT_BLOCKED"
+  | "SESSION_EXPIRED"
+  | "TIMEOUT"
+  | "GENERIC";
+
+/**
+ * Thrown by withLoginFlow (and optionally by adapter tool handlers / isLoggedIn)
+ * to surface a typed, actionable login failure to the MCP client.
+ */
+export class LoginError extends Error {
+  constructor(public readonly errorType: AuthErrorType, message: string) {
+    super(message);
+    this.name = "LoginError";
+  }
+}
+
+/**
+ * Maps login outcomes to URL patterns (strings, regexes, or async predicates)
+ * that detect them after form submission. Used by withLoginFlow to classify
+ * the post-login page state.
+ *
+ * @example
+ * {
+ *   SUCCESS:          [/dashboard/i],
+ *   INVALID_PASSWORD: ["https://bank.co.il/login?error=bad-credentials"],
+ *   CHANGE_PASSWORD:  [/change-password/i],
+ * }
+ */
+export type PossibleLoginResults = Partial<
+  Record<"SUCCESS" | AuthErrorType,
+    Array<string | RegExp | ((page: Page) => Promise<boolean>)>>
+>;
+
+/**
+ * Describes a form-based login flow that the framework can automate.
+ * Return this from `SiteAdapter.getLoginOptions()` to opt in to automated login.
+ *
+ * Credentials belong here — read them from env vars or a secrets file;
+ * the framework never stores or inspects credentials itself.
+ */
+export interface LoginOptions {
+  /** URL to navigate to before filling the form. */
+  loginUrl: string;
+  /** Input fields to fill: CSS selector + the value to type. */
+  fields: Array<{ selector: string; value: string }>;
+  /** CSS selector of the submit button, or an async function that clicks it. */
+  submitButtonSelector: string | (() => Promise<void>);
+  /** Map from login outcome → URL/regex/predicate patterns that identify it. */
+  possibleResults: PossibleLoginResults;
+  /** Optional: wait for the form to be ready before filling (e.g. spinner gone). */
+  checkReadiness?: () => Promise<void>;
+  /** Optional: action to run before filling fields (e.g. click a "password" tab). */
+  preAction?: () => Promise<void>;
+  /** Optional: action after submit instead of the default waitForRedirect. */
+  postAction?: () => Promise<void>;
+  /** Optional: override the User-Agent header for the login page. */
+  userAgent?: string;
+  /** Navigation lifecycle event to wait for on the initial goto (default: domcontentloaded). */
+  waitUntil?: "load" | "domcontentloaded" | "networkidle";
+}
+
 // ─── SiteAdapter ─────────────────────────────────────────────────────────────
 
 export interface SiteAdapter {
@@ -199,6 +269,28 @@ export interface SiteAdapter {
   tools(): ToolDefinition[];
   /** Return true when the current page is in an authenticated state. */
   isLoggedIn(page: Page): Promise<boolean>;
+  /**
+   * Optional lifecycle hook called once after the browser page is created,
+   * before any tool runs. Use to configure the page at startup:
+   *   - page.setExtraHTTPHeaders() for locale or auth headers
+   *   - page.route() to block analytics/tracking requests globally
+   *   - maskHeadlessUserAgent(page) for bot-detection mitigation
+   *
+   * Not called again on the same session unless the browser is relaunched.
+   */
+  preparePage?: (page: Page) => Promise<void>;
+  /**
+   * Optional: return a LoginOptions descriptor to enable automated form-based login.
+   *
+   * When present, handleAuthFailure() will attempt to fill and submit the login
+   * form automatically before falling back to the human-handoff flow. Adapters
+   * that rely on manual login (e.g. OAuth, SSO, passkeys) should leave this
+   * undefined — behavior is identical to before.
+   *
+   * Credentials go inside this function: read them from env vars or a secrets
+   * file. The framework never stores or inspects credential values.
+   */
+  getLoginOptions?: () => LoginOptions;
 }
 
 // ─── Framework config (browserkit.config.ts) ────────────────────────────────
