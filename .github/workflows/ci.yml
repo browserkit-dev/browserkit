@@ -34,6 +34,25 @@ jobs:
       - name: Test (unit)
         run: pnpm test
 
+      # E2E: checkout adapter-hackernews and link it into the workspace for E2E tests.
+      # The adapter uses workspace:* for @browserkit/core so pnpm links it automatically.
+      - name: Checkout adapter-hackernews for E2E
+        uses: actions/checkout@v4
+        with:
+          repository: browserkit-dev/adapter-hackernews
+          path: packages/adapter-hackernews
+
+      - name: Link adapter-hackernews into workspace
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('packages/adapter-hackernews/package.json'));
+            pkg.devDependencies['@browserkit/core'] = 'workspace:*';
+            fs.writeFileSync('packages/adapter-hackernews/package.json', JSON.stringify(pkg, null, 2));
+          "
+          pnpm install --no-frozen-lockfile
+          pnpm --filter @browserkit/adapter-hackernews build
+
       - name: Test (E2E smoke)
         run: pnpm test:e2e
         timeout-minutes: 5
