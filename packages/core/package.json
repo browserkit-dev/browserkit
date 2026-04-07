@@ -5,6 +5,15 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/browserkit-dev/browserkit.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -23,12 +32,13 @@
     "build:watch": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit",
-    "postinstall": "patchright install chromium --with-deps || true"
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "patchright": "^1.51.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
-    "patchright": "^1.51.1",
     "pino": "^9.6.0",
     "playwright-core": "^1.58.2",
     "quickjs-emscripten": "^0.32.0",
@@ -36,6 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
+    "patchright": "^1.51.1",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^3.0.9"
@@ -48,7 +59,6 @@
     "README.md"
   ],
   "optionalDependencies": {
-    "@browserkit/adapter-hackernews": "workspace:*",
     "cloakbrowser": "^0.3.18"
   }
 }
