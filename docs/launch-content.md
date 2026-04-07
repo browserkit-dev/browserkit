@@ -85,7 +85,7 @@ If the session expires mid-use, browserkit opens a temporary background browser,
 A minimal adapter is about 50 lines:
 
 ```typescript
-import { defineAdapter } from "@browserkit/core";
+import { defineAdapter } from "@browserkit-dev/core";
 import { z } from "zod";
 
 export default defineAdapter({
@@ -130,7 +130,7 @@ Every adapter ships with a 4-layer test suite:
 - **L3 — MCP Protocol**: spins up a real in-process MCP server, connects via the SDK client, tests the full protocol stack
 - **L4 — Reliability**: concurrency (lock serialization), latency measurement, error recovery
 
-The testing utilities are in `@browserkit/core/testing`:
+The testing utilities are in `@browserkit-dev/core/testing`:
 
 ```typescript
 const server = await createTestAdapterServer(myAdapter); // isolated temp dir, dynamic port
@@ -164,7 +164,7 @@ Things you don't have to write:
 ## Get started
 
 ```bash
-pnpm add @browserkit/core @browserkit/adapter-hackernews
+pnpm add @browserkit-dev/core @browserkit-dev/adapter-hackernews
 browserkit start --config browserkit.config.js
 ```
 

@@ -5,7 +5,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 ## Project: browserkit
 
 - Project is named **browserkit** — decided and final. npm scope is `@browserkit`. GitHub org is `browserkit-dev` (`browserkit` org was taken on GitHub, available on npm).
-- GitHub repos: `browserkit-dev/browserkit` (framework — `@browserkit/core` + `@browserkit/core/testing`), `browserkit-dev/adapter-hackernews`, `browserkit-dev/adapter-google-discover`, `browserkit-dev/adapter-linkedin` — all standalone public repos
+- GitHub repos: `browserkit-dev/browserkit` (framework — `@browserkit-dev/core` + `@browserkit-dev/core/testing`), `browserkit-dev/adapter-hackernews`, `browserkit-dev/adapter-google-discover`, `browserkit-dev/adapter-linkedin` — all standalone public repos
 - Language is TypeScript, not Python
 - MCP transport is HTTP (`StreamableHTTPServerTransport`), not stdio — preferred for multi-agent deployment
 - Each adapter gets its own HTTP port; each connecting MCP client gets its own `McpServer + StreamableHTTPServerTransport` pair (per-session factory inside the HTTP handler). Shared state (browser, lock, rate limiter) lives outside the McpServer.
@@ -32,11 +32,11 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - "Raw" Playwright access means exposing the CDP WebSocket URL (`wsEndpoint()`) of each adapter's browser — external agents (Claude Code, Cursor) attach to the already-authenticated session and write their own Playwright scripts via shell
 - The Playwright skill pattern: AI writes a script to `/tmp`, executes it via shell — primary approach for shell-capable clients (Cursor, Claude Code); opt-in `run_script` MCP tool planned for clients without shell access (Claude Desktop) — opt-in because Cursor/Claude Code already have shell, only Claude Desktop needs it
 - MCP resources use `page://${site}/snapshot` (site name dynamic) — user pushed back when the URI appeared to hardcode the adapter name
-- Testing utilities (`createTestAdapterServer`, `createTestMcpClient`) live at `@browserkit/core/testing` subpath — a separate harness package was explicitly rejected ("I don't think we need it, it should be in either adapter or in core")
+- Testing utilities (`createTestAdapterServer`, `createTestMcpClient`) live at `@browserkit-dev/core/testing` subpath — a separate harness package was explicitly rejected ("I don't think we need it, it should be in either adapter or in core")
 - Real Chrome (`channel: "chrome"`) is required for Google-based adapters — Playwright's bundled Chromium is blocked by Google's login with "This browser or app may not be secure". `isLoggedIn` must NOT navigate during login polling or it redirects the user away from the sign-in page.
 - Google Discover has NO infinite scroll in automated browser contexts — confirmed with Pixel 5, Pixel 7, both headless and watch mode, both `window.scrollBy` and `mouse.wheel`. ~10 articles is the practical ceiling per call. Do NOT mention this limitation in marketing content.
 - Patchright (drop-in Playwright replacement) **has been implemented** in core and all adapters — removes `Runtime.enable` CDP leak, `Console.enable` leak, and `--enable-automation` flag. Same API as Playwright; just change the import. `channel: "chrome"` still recommended on top of Patchright for Google-based adapters.
-- LinkedIn adapter was rebuilt 1:1 with `stickerdaniel/linkedin-mcp-server`: innerText + URL navigation (not DOM selectors), section-based architecture, 7 tools (`get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed`). `isAuthBlockerUrl` + `detectAuthBarrier` promoted to `@browserkit/core` as generic utilities.
+- LinkedIn adapter was rebuilt 1:1 with `stickerdaniel/linkedin-mcp-server`: innerText + URL navigation (not DOM selectors), section-based architecture, 7 tools (`get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed`). `isAuthBlockerUrl` + `detectAuthBarrier` promoted to `@browserkit-dev/core` as generic utilities.
 - CSS class selectors break on JS-heavy apps (LinkedIn proved this) — prefer `page.evaluate()` + ARIA-label walk-up from stable action buttons, or raw `innerText` extraction. This is now in the `create-adapter` scaffold template.
 - Framework navigates to `adapter.loginUrl` before calling `isLoggedIn()` when browser is at `about:blank` — adapters do NOT need to handle this themselves
 - `warm_up_browser()` (visiting google/wiki/github before login) was evaluated from stickerdaniel's code — decided as "nice to have" for first-time login, not adopted yet
@@ -55,7 +55,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Testing preference: all 4 layers (unit, scraping integration, MCP protocol, reliability) — user said "all of those" without hesitation; don't propose a subset
 - Bugs found during testing should be fixed inline ("fix issues on the go"), not deferred to a follow-up task
 - Adapter developers should minimize visible dependency on the framework — adapters should feel like standalone npm packages, not framework plugins
-- Documentation for AI agents building adapters is a first-class concern — README must include the full `SiteAdapter` interface, testing pattern (`@browserkit/core/testing`), and a link to the HN adapter as a reference
+- Documentation for AI agents building adapters is a first-class concern — README must include the full `SiteAdapter` interface, testing pattern (`@browserkit-dev/core/testing`), and a link to the HN adapter as a reference
 - Cursor uses `.cursor/mcp.json` for project-level MCP config; `.mcp.json` is the Claude Code format — these are different files serving different tools
 - E2E install tests are wanted: spin up a clean environment, install core + HN adapter, verify tools work, install Google Discover adapter, verify it starts but returns auth error (no login)
 - Squash CI fix commits to keep git history clean — user noticed multiple "fix CI" commits and asked to squash
@@ -74,6 +74,9 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - Runs locally at port 52746; registered in `.cursor/mcp.json` as `"rescue-flights"` (local config only, not committed to monorepo)
 - **Israir tool**: `detailUrl`, `flightNumber`, and `departureTime` are only populated when `availableSeats > 0`; sold-out flights return empty strings for those fields
 - **Israir `buildDetail()` bug**: guard `if (!available || !price)` is overly strict — flights with seats but no price get no booking link; fix is to change to `if (!available)` (1-line change, zero risk)
-- **El Al tool**: always returns `flightNumber` and `departureTime` for all flights (including sold-out); never returns a `detailUrl` — no booking link field exists in El Al output
+- **El Al tool**: always returns `flightNumber` and `departureTime` for all flights (including sold-out); `detailUrl` links to the seat-availability page (`?d=0` from Israel / `?d=1` to Israel) — El Al booking pages all return 403 (session tokens required), so the availability page is the best accessible link
+- **El Al virtual scroll bug**: Angular virtual scroll recycles DOM nodes on scroll-back — must collect flight data incrementally *during* each scroll step (not after); single-pass post-scroll extraction returns only the currently-visible rows (~7 flights vs 168+ total)
 - **Coverage difference**: El Al covers the next 8 days only; Israir covers 30+ days ahead
 - El Al scraper returns `ERR_ABORTED` when called concurrently with Israir — run the two scrapers sequentially to avoid
+- **Israir booking URL** format: `https://www.israir.co.il/he-IL/reservation/deal/searchFlight/abroadFlight?destCode=TLV&departDate=...&fNumbers=...&sessionId=...` — the `sessionId` is live-session-scoped and expires; cannot be reused outside the active browser session
+- **Verification preference**: use the adapter's own headless Patchright browser (not the cursor-ide-browser MCP) for rescue-flights verification — user stated strong preference ("I prefer it immensely")

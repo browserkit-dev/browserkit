@@ -20,7 +20,7 @@ The trade-off is intentional — browserkit is single-user and local-only by des
 
 ```bash
 # Install core + adapters
-pnpm add @browserkit/core @browserkit/adapter-hackernews @browserkit/adapter-linkedin
+pnpm add @browserkit-dev/core @browserkit-dev/adapter-hackernews @browserkit-dev/adapter-linkedin
 
 # Log in once per authenticated site (opens a browser window)
 browserkit login linkedin
@@ -46,9 +46,9 @@ Configure your MCP client (Cursor, Claude Desktop, etc.):
 
 | Package | Site | Auth | Tools |
 |---|---|---|---|
-| [`@browserkit/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) | Hacker News | none | `get_top`, `get_new`, `get_ask`, `get_show`, `get_comments` |
-| [`@browserkit/adapter-linkedin`](https://github.com/browserkit-dev/adapter-linkedin) | LinkedIn | required | `get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed` |
-| [`@browserkit/adapter-reddit`](https://github.com/browserkit-dev/adapter-reddit) | Reddit | none | `get_subreddit`, `get_thread`, `search`, `get_user` |
+| [`@browserkit-dev/adapter-hackernews`](https://github.com/browserkit-dev/adapter-hackernews) | Hacker News | none | `get_top`, `get_new`, `get_ask`, `get_show`, `get_comments` |
+| [`@browserkit-dev/adapter-linkedin`](https://github.com/browserkit-dev/adapter-linkedin) | LinkedIn | required | `get_person_profile`, `get_company_profile`, `get_company_posts`, `search_people`, `search_jobs`, `get_job_details`, `get_feed` |
+| [`@browserkit-dev/adapter-reddit`](https://github.com/browserkit-dev/adapter-reddit) | Reddit | none | `get_subreddit`, `get_thread`, `search`, `get_user` |
 
 ---
 
@@ -80,10 +80,10 @@ export default {
 
   adapters: {
     // key = npm package name (no naming convention required)
-    "@browserkit/adapter-hackernews": {
+    "@browserkit-dev/adapter-hackernews": {
       port: 3847,
     },
-    "@browserkit/adapter-linkedin": {
+    "@browserkit-dev/adapter-linkedin": {
       port: 3848,
       channel: "chrome",    // use real Chrome — avoids bot detection on login
     },
@@ -178,7 +178,7 @@ Enable in config: `debugPort: adapterPort + 1000` (e.g. adapter on 3848 → debu
 ### Scaffold
 
 ```bash
-npx @browserkit/core create-adapter my-site
+npx @browserkit-dev/core create-adapter my-site
 cd adapter-my-site
 pnpm install
 ```
@@ -188,7 +188,7 @@ This generates the full package structure: `src/index.ts`, `src/selectors.ts`, `
 ### SiteAdapter interface
 
 ```typescript
-import { defineAdapter } from "@browserkit/core";
+import { defineAdapter } from "@browserkit-dev/core";
 import { z } from "zod";
 import type { Page } from "playwright";
 
@@ -264,13 +264,13 @@ tools: () => [
 
 ### Testing your adapter
 
-Use `@browserkit/core/testing` to write tests that spin up a real in-process server:
+Use `@browserkit-dev/core/testing` to write tests that spin up a real in-process server:
 
 ```typescript
 // tests/mcp-protocol.test.ts
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import myAdapter from "../src/index.js";
-import { createTestAdapterServer, createTestMcpClient } from "@browserkit/core/testing";
+import { createTestAdapterServer, createTestMcpClient } from "@browserkit-dev/core/testing";
 
 let server, client;
 

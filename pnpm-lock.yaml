@@ -8,7 +8,7 @@ importers:
 
   .:
     devDependencies:
-      '@browserkit/core':
+      '@browserkit-dev/core':
         specifier: workspace:*
         version: link:packages/core
       '@changesets/cli':
@@ -23,7 +23,7 @@ importers:
 
   packages/adapter-hackernews:
     devDependencies:
-      '@browserkit/core':
+      '@browserkit-dev/core':
         specifier: workspace:*
         version: link:../core
       '@types/node':
@@ -47,7 +47,7 @@ importers:
 
   packages/adapter-linkedin:
     devDependencies:
-      '@browserkit/core':
+      '@browserkit-dev/core':
         specifier: workspace:*
         version: link:../core
       '@types/node':

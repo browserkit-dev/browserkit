@@ -1,5 +1,5 @@
 {
-  "name": "@browserkit/core",
+  "name": "@browserkit-dev/core",
   "version": "0.1.0",
   "description": "Core framework for building site-specific MCP servers over authenticated browser sessions",
   "type": "module",

@@ -23,7 +23,7 @@ pnpm test
 
 ## Working on core + an adapter simultaneously
 
-Adapter directories are gitignored in this repo — they live in their own GitHub repositories under [browserkit-dev](https://github.com/browserkit-dev). Clone the adapter you want into the `packages/` folder and pnpm will link `@browserkit/core` to your local workspace automatically — no `npm link`, no `file:`, no manual steps.
+Adapter directories are gitignored in this repo — they live in their own GitHub repositories under [browserkit-dev](https://github.com/browserkit-dev). Clone the adapter you want into the `packages/` folder and pnpm will link `@browserkit-dev/core` to your local workspace automatically — no `npm link`, no `file:`, no manual steps.
 
 ```bash
 # Clone the monorepo
@@ -46,7 +46,7 @@ pnpm test
 pnpm test:e2e
 ```
 
-Any change you make to `packages/core/src/` is visible in the adapter immediately after `pnpm --filter @browserkit/core build`.
+Any change you make to `packages/core/src/` is visible in the adapter immediately after `pnpm --filter @browserkit-dev/core build`.
 
 ### Available adapters
 
@@ -60,7 +60,7 @@ Any change you make to `packages/core/src/` is visible in the adapter immediatel
 
 ---
 
-## Releasing a new version of `@browserkit/core`
+## Releasing a new version of `@browserkit-dev/core`
 
 This repo uses [Changesets](https://github.com/changesets/changesets) for versioning and publishing.
 
@@ -75,7 +75,7 @@ git commit -m "chore: add changeset"
 
 When the PR is merged to `main`, the Release GitHub Action automatically:
 1. Opens (or updates) a "Release PR" that bumps the version and updates `CHANGELOG.md`
-2. When that Release PR is merged, publishes `@browserkit/core` to npm
+2. When that Release PR is merged, publishes `@browserkit-dev/core` to npm
 
 An `NPM_TOKEN` secret must be set in the repository settings for publishing to work.
 
@@ -89,5 +89,5 @@ See any existing adapter as a reference — HackerNews is the simplest:
 Scaffold a new adapter with:
 
 ```bash
-npx @browserkit/core create-adapter my-site
+npx @browserkit-dev/core create-adapter my-site
 ```

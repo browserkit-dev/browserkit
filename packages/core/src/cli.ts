@@ -393,7 +393,7 @@ Options (start):
   --config <path>    Path to browserkit.config.ts
 
 Examples:
-  browserkit start --adapter @browserkit/adapter-linkedin
+  browserkit start --adapter @browserkit-dev/adapter-linkedin
   browserkit login linkedin
   browserkit logout linkedin
   browserkit reload google-discover

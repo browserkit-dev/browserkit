@@ -64,7 +64,7 @@ All 3 adapters logged in and serving tools:
 
 ### Testing harness
 
-Added `packages/harness` (`@browserkit/harness`) — shared test utilities:
+Added `packages/harness` (`@browserkit-dev/harness`) — shared test utilities:
 - `src/test-server.ts` — `createTestAdapterServer(adapter)`: spins up an isolated in-process adapter server on a dynamic port with a temp `dataDir` (avoids pidfile conflicts); cleans up on `stop()`.
 - `src/mcp-client.ts` — `createTestMcpClient(url)`: wraps `Client` + `StreamableHTTPClientTransport` from `@modelcontextprotocol/sdk`; provides `callTool`, `listTools`, `close`.
 
@@ -91,7 +91,7 @@ Added `packages/harness` (`@browserkit/harness`) — shared test utilities:
 - CDP attach pattern: `chromium.connectOverCDP(cdpUrl)` → reuses authenticated session, `browser.disconnect()` leaves session alive
 
 - Established monorepo with pnpm workspaces (`packages/core`, `packages/adapter-linkedin`)
-- Implemented `@browserkit/core`:
+- Implemented `@browserkit-dev/core`:
   - `types.ts` — full type system: `SiteAdapter`, `ToolDefinition`, `ToolResult` (text+image), `FrameworkConfig`, `SessionConfig`, `AdapterStatus`, `DaemonStatus`
   - `define-adapter.ts` — `defineAdapter()` with compile-time + runtime validation
   - `define-config.ts` — `defineConfig()` with security validation (non-localhost requires bearer token)
@@ -105,7 +105,7 @@ Added `packages/harness` (`@browserkit/harness`) — shared test utilities:
   - `cli.ts` — `start`, `login`, `status`, `config cursor`, `create-adapter` commands; startup banner with auth status
   - `create-adapter.ts` — standalone project scaffolding (package.json, tsconfig, selectors, index, tests, README)
   - `observability.ts` — `withObservability()` wrapping Playwright trace + screenshot + ARIA snapshot + timing log
-- Implemented `@browserkit/adapter-linkedin`:
+- Implemented `@browserkit-dev/adapter-linkedin`:
   - `selectors.ts` — named selector constants for feed, messaging, people search
   - `index.ts` — `defineAdapter()` with `isLoggedIn`, `get_feed`, `get_messages`, `search_people`
 - 23 tests passing across both packages (LockManager, RateLimiter, defineAdapter, SessionManager, LinkedIn adapter)

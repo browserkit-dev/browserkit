@@ -7,11 +7,11 @@
     "build": "pnpm -r --workspace-concurrency=1 build",
     "test": "pnpm -r test",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:integration": "pnpm --filter @browserkit/adapter-hackernews test:integration",
+    "test:integration": "pnpm --filter @browserkit-dev/adapter-hackernews test:integration",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {
-    "@browserkit/core": "workspace:*",
+    "@browserkit-dev/core": "workspace:*",
     "@changesets/cli": "^2.30.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.9"

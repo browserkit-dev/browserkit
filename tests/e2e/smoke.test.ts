@@ -27,7 +27,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import fs from "node:fs";
-import { createTestMcpClient, type TestMcpClient } from "@browserkit/core/testing";
+import { createTestMcpClient, type TestMcpClient } from "@browserkit-dev/core/testing";
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 

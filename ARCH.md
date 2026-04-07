@@ -9,7 +9,7 @@ browserkit is a local-first framework for building site-specific MCP servers ove
 ```
 browserkit/                          # monorepo root
 ├── packages/
-│   ├── core/                         # @browserkit/core (published)
+│   ├── core/                         # @browserkit-dev/core (published)
 │   │   └── src/
 │   │       ├── types.ts              # SiteAdapter, ToolDefinition, FrameworkConfig
 │   │       ├── define-adapter.ts     # defineAdapter() — type-safe adapter factory
@@ -24,9 +24,9 @@ browserkit/                          # monorepo root
 │   │       ├── server.ts             # orchestrator: load adapters, start servers
 │   │       ├── create-adapter.ts     # scaffolding for new adapter packages
 │   │       └── cli.ts                # start | login | status | config | create-adapter
-│   ├── adapter-linkedin/             # @browserkit/adapter-linkedin (reference impl)
-│   ├── adapter-hackernews/           # @browserkit/adapter-hackernews (demo adapter)
-│   └── harness/                      # @browserkit/harness (test utilities, private)
+│   ├── adapter-linkedin/             # @browserkit-dev/adapter-linkedin (reference impl)
+│   ├── adapter-hackernews/           # @browserkit-dev/adapter-hackernews (demo adapter)
+│   └── harness/                      # @browserkit-dev/harness (test utilities, private)
 │       └── src/
 │           ├── test-server.ts        # createTestAdapterServer() — isolated in-process server
 │           └── mcp-client.ts         # createTestMcpClient() — typed MCP HTTP test client

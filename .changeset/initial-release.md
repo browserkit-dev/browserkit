@@ -1,8 +1,8 @@
 ---
-"@browserkit/core": minor
+"@browserkit-dev/core": minor
 ---
 
-Initial public release of @browserkit/core — the framework for building site-specific MCP servers over authenticated browser sessions.
+Initial public release of @browserkit-dev/core — the framework for building site-specific MCP servers over authenticated browser sessions.
 
 Key features:
 - `defineAdapter` / `SiteAdapter` interface for building adapters

@@ -3,7 +3,7 @@ import path from "node:path";
 
 /**
  * Generate a standalone adapter project in the current directory.
- * Invoked via: npx @browserkit/core create-adapter <name>
+ * Invoked via: npx @browserkit-dev/core create-adapter <name>
  */
 export function createAdapter(name: string): void {
   if (!name || !/^[a-z0-9-]+$/.test(name)) {
@@ -65,10 +65,10 @@ function packageJson(name: string): string {
         lint: "tsc --noEmit",
       },
       peerDependencies: {
-        "@browserkit/core": ">=0.1.0",
+        "@browserkit-dev/core": ">=0.1.0",
       },
       devDependencies: {
-        "@browserkit/core": "^0.1.0",
+        "@browserkit-dev/core": "^0.1.0",
         "@types/node": "^22.0.0",
         playwright: "^1.51.0",
         tsx: "^4.0.0",
@@ -163,7 +163,7 @@ export const SELECTORS = {
 function indexTs(name: string): string {
   const domain = `${name}.com`;
   const loginUrl = `https://www.${domain}/login`;
-  return `import { defineAdapter } from "@browserkit/core";
+  return `import { defineAdapter } from "@browserkit-dev/core";
 import { z } from "zod";
 import type { Page } from "patchright";
 import { SELECTORS } from "./selectors.js";
@@ -266,7 +266,7 @@ A [browserkit](https://github.com/jzarecki/browserkit) adapter for ${name}.
 ## Installation
 
 \`\`\`bash
-pnpm add @browserkit/core browserkit-adapter-${name}
+pnpm add @browserkit-dev/core browserkit-adapter-${name}
 \`\`\`
 
 ## Usage
@@ -274,7 +274,7 @@ pnpm add @browserkit/core browserkit-adapter-${name}
 In \`browserkit.config.ts\`:
 
 \`\`\`typescript
-import { defineConfig } from "@browserkit/core";
+import { defineConfig } from "@browserkit-dev/core";
 
 export default defineConfig({
   adapters: {
