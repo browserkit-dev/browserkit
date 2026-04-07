@@ -4,14 +4,21 @@
 
 ### Minor Changes
 
-- 732686d: Initial public release of @browserkit-dev/core — the framework for building site-specific MCP servers over authenticated browser sessions.
+- Adapter ecosystem hardening: `minCoreVersion` + `AdapterRequirements` on `SiteAdapter`, `version-check.ts` with `satisfies()`/`readCoreVersion()`, `browserkit doctor` CLI command, dynamic `create-adapter` scaffold versioning, cross-repo `test-adapters.yml` CI.
+
+## 0.1.0
+
+### Minor Changes
+
+- Initial public release of @browserkit-dev/core — the framework for building site-specific MCP servers over authenticated browser sessions.
 
   Key features:
-
   - `defineAdapter` / `SiteAdapter` interface for building adapters
   - `SessionManager` with persistent, storage-state, and CDP-attach strategies
   - `withLoginFlow` for opt-in automated form-based login
   - `waitUntil`, `fetchGetWithinPage`, `fetchPostWithinPage` and other scraping utilities
   - `preparePage` lifecycle hook for per-page configuration
+  - `LockManager`, `RateLimiter`, and `withObservability` for production reliability
+  - HTTP MCP transport via `StreamableHTTPServerTransport`
   - `LockManager`, `RateLimiter`, and `withObservability` for production reliability
   - HTTP MCP transport via `StreamableHTTPServerTransport`

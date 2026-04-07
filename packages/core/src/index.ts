@@ -88,7 +88,7 @@ export {
 export { withLoginFlow } from "./login-flow.js";
 
 // ─── Version utilities ────────────────────────────────────────────────────────
-export { readCoreVersion, satisfies, parseSemver, readAdapterVersion } from "./version-check.js";
+export { readCoreVersion, satisfies, parseSemver, readAdapterVersion, resolveWorkspaceMainEntry } from "./version-check.js";
 
 // ─── Observability ────────────────────────────────────────────────────────────
 export { withObservability } from "./observability.js";

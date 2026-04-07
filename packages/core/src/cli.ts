@@ -8,7 +8,7 @@ import { SessionManager, getDefaultDataDir } from "./session-manager.js";
 import { runLoginCommand } from "./human-handoff.js";import { createAdapter } from "./create-adapter.js";
 import type { FrameworkConfig, DaemonStatus, AdapterStatus } from "./types.js";
 import { getLogger } from "./logger.js";
-import { readCoreVersion, satisfies, readAdapterVersion } from "./version-check.js";
+import { readCoreVersion, satisfies, readAdapterVersion, resolveWorkspaceMainEntry } from "./version-check.js";
 
 const log = getLogger("cli");
 
@@ -449,7 +449,12 @@ async function cmdDoctor(args: string[]): Promise<void> {
     let loadError: string | undefined;
 
     try {
-      const mod = await import(key).catch(() => null);
+      // For npm package names that aren't in node_modules (workspace packages),
+      // resolve the main entry file via the workspace and import from that path.
+      const importKey = (key.startsWith("/") || key.startsWith("."))
+        ? key
+        : (resolveWorkspaceMainEntry(key) ?? key);
+      const mod = await import(importKey).catch(() => null);
       const adapter = mod?.default ?? mod;
       if (adapter && typeof adapter === "object") {
         minCoreVer = typeof adapter.minCoreVersion === "string" ? adapter.minCoreVersion : undefined;

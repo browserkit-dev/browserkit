@@ -135,3 +135,43 @@ function findInPnpmWorkspace(packageName: string): string | null {
     return null;
   }
 }
+
+/**
+ * For an npm package name, resolve its main entry file path via the pnpm
+ * workspace (for packages that are workspace members but not in node_modules).
+ * Returns null if not found in the workspace.
+ */
+export function resolveWorkspaceMainEntry(packageName: string): string | null {
+  try {
+    let dir = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 10; i++) {
+      if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
+        const packagesDir = path.join(dir, "packages");
+        if (!fs.existsSync(packagesDir)) break;
+        for (const entry of fs.readdirSync(packagesDir)) {
+          const pkgJsonPath = path.join(packagesDir, entry, "package.json");
+          if (fs.existsSync(pkgJsonPath)) {
+            const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as {
+              name?: string;
+              main?: string;
+              exports?: Record<string, unknown>;
+            };
+            if (pkg.name === packageName) {
+              // Prefer exports["."].import, fall back to main
+              const exportsDefault = (pkg.exports as { "."?: { import?: string } } | undefined)?.["."]?.import;
+              const mainEntry = exportsDefault ?? pkg.main ?? "dist/index.js";
+              return path.join(packagesDir, entry, mainEntry);
+            }
+          }
+        }
+        break;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

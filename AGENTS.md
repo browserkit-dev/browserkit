@@ -4,7 +4,7 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 
 ## Project: browserkit
 
-- Project is named **browserkit** — decided and final. npm scope is `@browserkit`. GitHub org is `browserkit-dev` (`browserkit` org was taken on GitHub, available on npm).
+- Project is named **browserkit** — decided and final. npm scope is `@browserkit-dev`. GitHub org is `browserkit-dev` (`browserkit` org name was taken on both GitHub and npm; `@browserkit-dev` is the npm scope in use).
 - GitHub repos: `browserkit-dev/browserkit` (framework — `@browserkit-dev/core` + `@browserkit-dev/core/testing`), `browserkit-dev/adapter-hackernews`, `browserkit-dev/adapter-google-discover`, `browserkit-dev/adapter-linkedin` — all standalone public repos
 - Language is TypeScript, not Python
 - MCP transport is HTTP (`StreamableHTTPServerTransport`), not stdio — preferred for multi-agent deployment
