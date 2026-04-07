@@ -28,6 +28,7 @@ export type {
   AuthErrorType,
   LoginOptions,
   PossibleLoginResults,
+  AdapterRequirements,
 } from "./types.js";
 export { LoginError } from "./types.js";
 
@@ -85,6 +86,9 @@ export {
 
 // ─── Login flow (opt-in automated login) ─────────────────────────────────────
 export { withLoginFlow } from "./login-flow.js";
+
+// ─── Version utilities ────────────────────────────────────────────────────────
+export { readCoreVersion, satisfies, parseSemver, readAdapterVersion } from "./version-check.js";
 
 // ─── Observability ────────────────────────────────────────────────────────────
 export { withObservability } from "./observability.js";

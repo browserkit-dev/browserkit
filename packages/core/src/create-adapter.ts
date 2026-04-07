@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { readCoreVersion } from "./version-check.js";
 
 /**
  * Generate a standalone adapter project in the current directory.
@@ -50,9 +51,10 @@ function writeFile(filePath: string, content: string): void {
 }
 
 function packageJson(name: string): string {
+  const coreVersion = readCoreVersion();
   return JSON.stringify(
     {
-      name: `browserkit-adapter-${name}`,
+      name: `@browserkit-dev/adapter-${name}`,
       version: "0.1.0",
       description: `${name} adapter for browserkit`,
       type: "module",
@@ -64,13 +66,14 @@ function packageJson(name: string): string {
         test: "vitest run",
         lint: "tsc --noEmit",
       },
+      publishConfig: { access: "public" },
       peerDependencies: {
-        "@browserkit-dev/core": ">=0.1.0",
+        "@browserkit-dev/core": `>=${coreVersion}`,
       },
       devDependencies: {
-        "@browserkit-dev/core": "^0.1.0",
+        "@browserkit-dev/core": `^${coreVersion}`,
         "@types/node": "^22.0.0",
-        playwright: "^1.51.0",
+        patchright: "^1.51.0",
         tsx: "^4.0.0",
         typescript: "^5.7.0",
         vitest: "^3.0.0",
@@ -161,6 +164,7 @@ export const SELECTORS = {
 }
 
 function indexTs(name: string): string {
+  const coreVersion = readCoreVersion();
   const domain = `${name}.com`;
   const loginUrl = `https://www.${domain}/login`;
   return `import { defineAdapter } from "@browserkit-dev/core";
@@ -172,6 +176,7 @@ export default defineAdapter({
   site: "${name}",
   domain: "${domain}",
   loginUrl: "${loginUrl}",
+  minCoreVersion: "${coreVersion}",
   rateLimit: { minDelayMs: 2000 },
 
   async isLoggedIn(page: Page): Promise<boolean> {

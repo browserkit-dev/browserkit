@@ -252,6 +252,35 @@ export interface LoginOptions {
   waitUntil?: "load" | "domcontentloaded" | "networkidle";
 }
 
+// ─── Adapter requirements ────────────────────────────────────────────────────
+
+/**
+ * Hints about adapter configuration requirements, surfaced by `browserkit doctor`.
+ * These are informational — the framework does not enforce them at startup.
+ */
+export interface AdapterRequirements {
+  /**
+   * Adapter login cannot be automated — it requires a headed browser window.
+   * (e.g. OAuth flows, SSO, passkey-based logins)
+   */
+  headedLoginRequired?: boolean | undefined;
+  /**
+   * Adapter requires channel:"chrome" in AdapterConfig.
+   * (e.g. Google-based adapters that reject Playwright's bundled Chromium)
+   */
+  chromeChannelRequired?: boolean | undefined;
+  /**
+   * Adapter requires a specific Playwright device emulation preset.
+   * (e.g. "Pixel 7" for Google Discover)
+   */
+  deviceEmulation?: string | undefined;
+  /**
+   * Adapter requires CloakBrowser for anti-bot-detection.
+   * (e.g. sites using DataDome — requires antiDetection.useCloakBrowser: true)
+   */
+  useCloakBrowser?: boolean | undefined;
+}
+
 // ─── SiteAdapter ─────────────────────────────────────────────────────────────
 
 export interface SiteAdapter {
@@ -291,6 +320,19 @@ export interface SiteAdapter {
    * file. The framework never stores or inspects credential values.
    */
   getLoginOptions?: () => LoginOptions;
+  /**
+   * Minimum @browserkit-dev/core version this adapter requires.
+   * Checked at startup by loadAdapter and at definition time by defineAdapter.
+   * Set this to the core version you develop and test against.
+   * @example "0.2.0"
+   */
+  readonly minCoreVersion?: string | undefined;
+  /**
+   * Optional hints about adapter configuration requirements.
+   * Not enforced at runtime — surfaced by `browserkit doctor` to help users
+   * configure the adapter correctly before starting.
+   */
+  readonly requirements?: AdapterRequirements | undefined;
 }
 
 // ─── Framework config (browserkit.config.ts) ────────────────────────────────

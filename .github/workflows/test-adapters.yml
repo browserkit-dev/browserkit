@@ -1,0 +1,49 @@
+name: Test Adapters Against New Core
+
+# Runs automatically after a successful Release workflow (which publishes core to npm).
+# Also triggerable manually to check all adapters at any time.
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  test-adapter:
+    # Only run if the Release workflow succeeded (or if triggered manually)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    name: Test ${{ matrix.adapter }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # test all adapters even if one fails
+      matrix:
+        adapter:
+          - adapter-hackernews
+          - adapter-google-discover
+          - adapter-linkedin
+          - adapter-reddit
+          - adapter-booking
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: browserkit-dev/${{ matrix.adapter }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install   # picks up the latest @browserkit-dev/core from npm
+
+      - name: Install Patchright Chromium
+        run: npx patchright install chromium --with-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+        timeout-minutes: 10

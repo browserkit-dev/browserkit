@@ -1,4 +1,5 @@
 import type { SiteAdapter } from "./types.js";
+import { satisfies, readCoreVersion, parseSemver } from "./version-check.js";
 
 /**
  * Type-safe helper for defining adapters.
@@ -9,6 +10,17 @@ import type { SiteAdapter } from "./types.js";
  */
 export function defineAdapter(adapter: SiteAdapter): SiteAdapter {
   validateAdapter(adapter);
+  // Dev-time version check: catch mismatches immediately when the module loads
+  if (adapter.minCoreVersion) {
+    const coreVer = readCoreVersion();
+    if (!satisfies(coreVer, adapter.minCoreVersion)) {
+      throw new Error(
+        `Adapter "${adapter.site}" requires @browserkit-dev/core >= ${adapter.minCoreVersion}, ` +
+        `but the installed version is ${coreVer}.\n` +
+        `Run: pnpm add @browserkit-dev/core@latest`
+      );
+    }
+  }
   return adapter;
 }
 
@@ -42,6 +54,13 @@ function validateAdapter(adapter: SiteAdapter): void {
       adapter.rateLimit.minDelayMs <= 0
     ) {
       errors.push("rateLimit.minDelayMs: must be a positive number");
+    }
+  }
+
+  // Validate minCoreVersion format if provided
+  if (adapter.minCoreVersion !== undefined) {
+    if (parseSemver(adapter.minCoreVersion) === null) {
+      errors.push(`minCoreVersion: "${adapter.minCoreVersion}" is not a valid X.Y.Z version string`);
     }
   }
 

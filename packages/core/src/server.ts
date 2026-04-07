@@ -3,6 +3,7 @@ import type { FrameworkConfig, DaemonStatus } from "./types.js";
 import { SessionManager } from "./session-manager.js";
 import { createAdapterServer, type AdapterServerHandle } from "./adapter-server.js";
 import { getLogger } from "./logger.js";
+import { satisfies, readCoreVersion } from "./version-check.js";
 
 const log = getLogger("server");
 
@@ -22,6 +23,17 @@ async function loadAdapter(packageName: string) {
         `Package "${packageName}" does not export a valid SiteAdapter. ` +
           `Make sure it uses defineAdapter() and has a default export.`
       );
+    }
+    // Version compatibility check
+    if (typeof adapter.minCoreVersion === "string") {
+      const coreVer = readCoreVersion();
+      if (!satisfies(coreVer, adapter.minCoreVersion)) {
+        throw new Error(
+          `Adapter "${adapter.site}" requires @browserkit-dev/core >= ${adapter.minCoreVersion}, ` +
+          `but the running version is ${coreVer}.\n` +
+          `Run: pnpm add @browserkit-dev/core@latest`
+        );
+      }
     }
     return adapter;
   } catch (err: unknown) {

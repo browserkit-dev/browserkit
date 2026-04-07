@@ -8,6 +8,7 @@ import { SessionManager, getDefaultDataDir } from "./session-manager.js";
 import { runLoginCommand } from "./human-handoff.js";import { createAdapter } from "./create-adapter.js";
 import type { FrameworkConfig, DaemonStatus, AdapterStatus } from "./types.js";
 import { getLogger } from "./logger.js";
+import { readCoreVersion, satisfies, readAdapterVersion } from "./version-check.js";
 
 const log = getLogger("cli");
 
@@ -28,6 +29,8 @@ async function main(): Promise<void> {
       return cmdStatus(args);
     case "config":
       return cmdConfig(args);
+    case "doctor":
+      return cmdDoctor(args);
     case "create-adapter": {
       const name = args[0];
       if (!name) {
@@ -386,6 +389,7 @@ Commands:
   status                Show daemon status
   config cursor         Generate Cursor MCP settings JSON
   create-adapter <name> Scaffold a new standalone adapter package
+  doctor                Check version compatibility for all configured adapters
 
 Options (start):
   --adapter <pkg>    Add an adapter by npm package name (repeatable)
@@ -398,9 +402,147 @@ Examples:
   browserkit logout linkedin
   browserkit reload google-discover
   browserkit status
+  browserkit doctor
   browserkit config cursor
   browserkit create-adapter my-site
 `);
+}
+
+// ─── doctor ──────────────────────────────────────────────────────────────────
+
+async function cmdDoctor(args: string[]): Promise<void> {
+  const config = await resolveConfig(args);
+  const coreVer = readCoreVersion();
+
+  const col = (s: string, w: number) => s.slice(0, w).padEnd(w);
+  const issues: string[] = [];
+
+  // ── Environment summary ───────────────────────────────────────────────────
+  console.log();
+  console.log(`  @browserkit-dev/core  ${coreVer}`);
+  const patchrightVer = getPatchrightVersion();
+  console.log(`  patchright            ${patchrightVer ?? "(not found)"}`);
+  console.log(`  node                  ${process.versions.node}`);
+  console.log();
+
+  // ── Adapter table ─────────────────────────────────────────────────────────
+  const adapterKeys = Object.keys(config.adapters ?? {});
+  if (adapterKeys.length === 0) {
+    console.log("  No adapters configured.");
+    console.log();
+    return;
+  }
+
+  console.log(
+    `  ${col("Adapter", 36)}${col("Version", 10)}${col("Core req", 12)}Status`
+  );
+  console.log(`  ${"-".repeat(72)}`);
+
+  for (const key of adapterKeys) {
+    const adapterConfig = config.adapters[key];
+    if (!adapterConfig) continue;
+
+    // Try to load the adapter module to read its metadata
+    let adapterVersion = readAdapterVersion(key) ?? "?";
+    let minCoreVer: string | undefined;
+    let reqs: Record<string, unknown> | undefined;
+    let loadError: string | undefined;
+
+    try {
+      const mod = await import(key).catch(() => null);
+      const adapter = mod?.default ?? mod;
+      if (adapter && typeof adapter === "object") {
+        minCoreVer = typeof adapter.minCoreVersion === "string" ? adapter.minCoreVersion : undefined;
+        reqs = adapter.requirements;
+      }
+    } catch (err) {
+      loadError = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    }
+
+    // Short display name
+    const displayName = key.startsWith("/") || key.startsWith(".")
+      ? path.basename(path.dirname(key))
+      : key.replace("@browserkit-dev/", "");
+
+    let status: string;
+    if (loadError) {
+      status = `ERROR — ${loadError}`;
+      issues.push(`${displayName}: failed to load — ${loadError}`);
+    } else if (minCoreVer && !satisfies(coreVer, minCoreVer)) {
+      status = `MISMATCH — needs core >= ${minCoreVer} (have ${coreVer})`;
+      issues.push(`${displayName}: needs @browserkit-dev/core >= ${minCoreVer}`);
+    } else {
+      status = "OK";
+    }
+
+    const coreReq = minCoreVer ? `>= ${minCoreVer}` : "(any)";
+    console.log(`  ${col(displayName, 36)}${col(adapterVersion, 10)}${col(coreReq, 12)}${status}`);
+
+    // Requirements vs config mismatch hints
+    if (reqs && typeof reqs === "object") {
+      const r = reqs as {
+        chromeChannelRequired?: boolean;
+        deviceEmulation?: string;
+        useCloakBrowser?: boolean;
+        headedLoginRequired?: boolean;
+      };
+      if (r.chromeChannelRequired && !adapterConfig.channel) {
+        const msg = `  ${" ".repeat(36)}  hint: adapter recommends channel:"chrome" in config`;
+        console.log(msg);
+        issues.push(`${displayName}: missing channel:"chrome" in config`);
+      }
+      if (r.deviceEmulation && !adapterConfig.deviceEmulation) {
+        const msg = `  ${" ".repeat(36)}  hint: adapter recommends deviceEmulation:"${r.deviceEmulation}"`;
+        console.log(msg);
+        issues.push(`${displayName}: missing deviceEmulation:"${r.deviceEmulation}" in config`);
+      }
+      if (r.useCloakBrowser && !adapterConfig.antiDetection?.useCloakBrowser) {
+        const msg = `  ${" ".repeat(36)}  hint: adapter recommends antiDetection.useCloakBrowser:true`;
+        console.log(msg);
+        issues.push(`${displayName}: missing antiDetection.useCloakBrowser:true in config`);
+      }
+    }
+  }
+
+  // ── Patchright peer dep check ─────────────────────────────────────────────
+  console.log();
+  const patchrightOk = checkPatchrightPeer(patchrightVer);
+  if (patchrightOk) {
+    console.log(`  patchright: OK (${patchrightVer} satisfies peer dep ^1.51.0)`);
+  } else {
+    const msg = `patchright ${patchrightVer ?? "(not found)"} — expected ^1.51.0`;
+    console.log(`  patchright: WARN — ${msg}`);
+    issues.push(msg);
+  }
+
+  // ── Summary ───────────────────────────────────────────────────────────────
+  console.log();
+  if (issues.length === 0) {
+    console.log("  Everything looks good.");
+  } else {
+    console.log(`  ${issues.length} issue${issues.length > 1 ? "s" : ""} found.`);
+  }
+  console.log();
+
+  process.exit(issues.length > 0 ? 1 : 0);
+}
+
+function getPatchrightVersion(): string | null {
+  try {
+    const pkgPath = new URL("../node_modules/patchright/package.json", import.meta.url);
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as { version?: string };
+    return pkg.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function checkPatchrightPeer(version: string | null): boolean {
+  if (!version) return false;
+  // peer dep is ^1.51.0 — major must be 1, minor >= 51
+  const parts = version.split(".").map(Number);
+  if (parts.length < 2) return false;
+  return parts[0] === 1 && (parts[1] ?? 0) >= 51;
 }
 
 function readPackageVersion(): string {
