@@ -26,7 +26,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Patchright Chromium
-        run: pnpm --filter @browserkit/core exec patchright install chromium --with-deps
+        run: pnpm --filter @browserkit-dev/core exec patchright install chromium --with-deps
 
       - name: Build
         run: pnpm build
@@ -35,7 +35,7 @@ jobs:
         run: pnpm test
 
       # E2E: checkout adapter-hackernews and link it into the workspace for E2E tests.
-      # The adapter uses workspace:* for @browserkit/core so pnpm links it automatically.
+      # The adapter uses workspace:* for @browserkit-dev/core so pnpm links it automatically.
       - name: Checkout adapter-hackernews for E2E
         uses: actions/checkout@v4
         with:
@@ -47,11 +47,11 @@ jobs:
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('packages/adapter-hackernews/package.json'));
-            pkg.devDependencies['@browserkit/core'] = 'workspace:*';
+            pkg.devDependencies['@browserkit-dev/core'] = 'workspace:*';
             fs.writeFileSync('packages/adapter-hackernews/package.json', JSON.stringify(pkg, null, 2));
           "
           pnpm install --no-frozen-lockfile
-          pnpm --filter @browserkit/adapter-hackernews build
+          pnpm --filter @browserkit-dev/adapter-hackernews build
 
       - name: Test (E2E smoke)
         run: pnpm test:e2e
