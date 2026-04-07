@@ -128,7 +128,7 @@ describe("Phase 1 — HackerNews adapter only", () => {
 
   it("get_top returns real HN articles", async () => {
     const result = await client.callTool("get_top", { count: 3 });
-    expect(result.isError).toBeFalsy();
+    expect(result.isError, `get_top failed: ${result.content[0]?.text ?? "(no message)"}`).toBeFalsy();
 
     const stories = JSON.parse(result.content[0]?.text ?? "[]") as Array<{
       title: string;
