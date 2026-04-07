@@ -122,3 +122,32 @@ npx changeset
 When prompted: choose `patch` / `minor` / `major` per the rules above, then write a one-sentence user-facing summary (what changed for users, not how it was implemented). Commit the generated `.changeset/*.md` file in the same PR.
 
 The Release GitHub Action handles version bumping and `npm publish` automatically when the changeset PR is merged to `main`.
+
+## CI Discipline
+
+**After every significant change, verify CI passes before considering the task done.**
+
+"Significant" means: any commit that touches `packages/core/src/`, adapter source files, `.github/workflows/`, `package.json` deps, or any change that gets pushed to `main`.
+
+### How to check
+
+```bash
+# Monorepo CI (unit + E2E):
+gh run list --repo browserkit-dev/browserkit --workflow=ci.yml --limit 1 --json status,conclusion
+
+# All repos at once:
+for repo in browserkit adapter-hackernews adapter-google-discover adapter-linkedin adapter-reddit adapter-booking; do
+  r=$(gh run list --repo browserkit-dev/$repo --workflow=ci.yml --limit 1 --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"')
+  echo "$repo: $r"
+done
+```
+
+### If CI fails
+
+1. Read the failing step logs: `gh api repos/browserkit-dev/<repo>/actions/runs/<run_id>/jobs`  
+2. Fix the root cause (don't push empty retrigger commits to mask real failures)  
+3. Push the fix and wait for green before closing out the task
+
+### Known flaky test
+
+`tests/e2e/smoke.test.ts > Phase 1 > get_top returns real HN articles` occasionally fails with `net::ERR_ABORTED` when GitHub Actions IPs are rate-limited by HN. If **only** this test fails and the error is a network error (not a code error), retrigger once. If it fails twice in a row, investigate whether HN's DOM changed.
