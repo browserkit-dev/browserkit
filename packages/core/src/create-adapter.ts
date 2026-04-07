@@ -264,14 +264,15 @@ describe("${name} adapter", () => {
 }
 
 function readme(name: string): string {
+  const coreVersion = readCoreVersion();
   return `# browserkit adapter: ${name}
 
-A [browserkit](https://github.com/jzarecki/browserkit) adapter for ${name}.
+A [browserkit](https://github.com/browserkit-dev/browserkit) adapter for ${name}.
 
 ## Installation
 
 \`\`\`bash
-pnpm add @browserkit-dev/core browserkit-adapter-${name}
+pnpm add @browserkit-dev/core @browserkit-dev/adapter-${name}
 \`\`\`
 
 ## Usage
@@ -283,7 +284,7 @@ import { defineConfig } from "@browserkit-dev/core";
 
 export default defineConfig({
   adapters: {
-    "browserkit-adapter-${name}": { port: 3847 },
+    "@browserkit-dev/adapter-${name}": { port: 3847 },
   },
 });
 \`\`\`
@@ -308,5 +309,17 @@ pnpm install
 pnpm test
 pnpm run build
 \`\`\`
+
+## Versioning
+
+This adapter requires \`@browserkit-dev/core >= ${coreVersion}\` (declared via \`minCoreVersion\`).
+
+Bump rules for this adapter:
+- **patch** — bug fix, selector update, no tool API change
+- **minor** — new tool added, new optional input/output field
+- **major** — tool removed or renamed, required input added, output type changed
+
+Every PR that changes behavior should include a changeset (\`npx changeset\`).
+See [browserkit versioning guidelines](https://github.com/browserkit-dev/browserkit/blob/main/AGENTS.md#versioning) for the full rules.
 `;
 }

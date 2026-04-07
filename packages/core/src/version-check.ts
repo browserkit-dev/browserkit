@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 /**
  * Parse a semver string into [major, minor, patch] tuple.
@@ -47,26 +48,45 @@ export function readCoreVersion(): string {
 /**
  * Read a package.json version from a file path or npm package name.
  * Returns null if not found.
+ *
+ * For file paths: walks up from the given path to find the nearest package.json.
+ * For npm package names: resolves the main entry via createRequire, then walks
+ *   up the directory tree to find the package.json whose "name" matches.
  */
 export function readAdapterVersion(packageNameOrPath: string): string | null {
   try {
-    let pkgJsonPath: string;
-
     if (packageNameOrPath.startsWith("/") || packageNameOrPath.startsWith(".")) {
-      // File path: look for package.json next to the dist file
-      const dir = path.dirname(packageNameOrPath);
-      // Try sibling package.json (e.g. dist/index.js → package.json one level up)
-      pkgJsonPath = fs.existsSync(path.join(dir, "package.json"))
-        ? path.join(dir, "package.json")
-        : path.join(dir, "..", "package.json");
-    } else {
-      // npm package: resolve from node_modules
-      // Use require.resolve to find it regardless of cwd
-      pkgJsonPath = require.resolve(`${packageNameOrPath}/package.json`);
+      // File path: walk up at most 5 levels to find package.json
+      let dir = path.dirname(packageNameOrPath);
+      for (let i = 0; i < 5; i++) {
+        const candidate = path.join(dir, "package.json");
+        if (fs.existsSync(candidate)) {
+          const pkg = JSON.parse(fs.readFileSync(candidate, "utf8")) as { version?: string };
+          return pkg.version ?? null;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break; // reached filesystem root
+        dir = parent;
+      }
+      return null;
     }
 
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as { version?: string };
-    return pkg.version ?? null;
+    // npm package: use createRequire (ESM-safe) to resolve the main entry,
+    // then walk up to find the package.json whose "name" matches.
+    const require = createRequire(import.meta.url);
+    const mainEntry = require.resolve(packageNameOrPath);
+    let dir = path.dirname(mainEntry);
+    while (true) {
+      const candidate = path.join(dir, "package.json");
+      if (fs.existsSync(candidate)) {
+        const pkg = JSON.parse(fs.readFileSync(candidate, "utf8")) as { name?: string; version?: string };
+        if (pkg.name === packageNameOrPath) return pkg.version ?? null;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break; // reached filesystem root
+      dir = parent;
+    }
+    return null;
   } catch {
     return null;
   }

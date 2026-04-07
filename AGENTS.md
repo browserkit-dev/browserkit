@@ -80,3 +80,45 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - El Al scraper returns `ERR_ABORTED` when called concurrently with Israir — run the two scrapers sequentially to avoid
 - **Israir booking URL** format: `https://www.israir.co.il/he-IL/reservation/deal/searchFlight/abroadFlight?destCode=TLV&departDate=...&fNumbers=...&sessionId=...` — the `sessionId` is live-session-scoped and expires; cannot be reused outside the active browser session
 - **Verification preference**: use the adapter's own headless Patchright browser (not the cursor-ide-browser MCP) for rescue-flights verification — user stated strong preference ("I prefer it immensely")
+
+## Versioning
+
+### @browserkit-dev/core
+
+Follows semver. During 0.x, treat minor bumps as potentially breaking for consumers.
+
+- **patch** (`0.1.x`): bug fixes, log/doc changes, internal refactors with no public API change.
+  - Examples: fix a crash in `waitUntil`, fix a typo in an error message, optimize `scrollContainer`.
+  - Rule: **no adapter needs to change any code** after updating core.
+
+- **minor** (`0.x.0`): new features, new optional fields on `SiteAdapter`, new exported utilities, new CLI commands.
+  - Examples: add `withLoginFlow`, add `minCoreVersion?` to `SiteAdapter`, add `browserkit doctor`.
+  - Rule: **existing adapters compile and run without changes** (purely additive).
+
+- **major** (`x.0.0`): breaking changes — removed exports, renamed functions, required new fields on `SiteAdapter`, changed tool-call contracts.
+  - Examples: rename `detectRateLimit` → `detectChallenge`, make `minCoreVersion` required, remove `scrollContainer`.
+  - Rule: **at least one published adapter must change source code** to compile against the new version.
+
+**Decision shortcut**: run `test-adapters.yml` after your change (or locally build each adapter against the new core). If all 5 pass without code changes → patch or minor. If any fails → major (or the failing adapter's peer dep range was already wrong).
+
+### Adapter packages (`@browserkit-dev/adapter-*`)
+
+Same semver rules, but "breaking" means "an MCP tool's public interface changed":
+
+- **patch**: bug fix, selector update, scraping logic change — no tool name/input/output signature change.
+- **minor**: new tool added, new optional input field on an existing tool, new optional output field.
+- **major**: tool removed or renamed, required input field added, output field removed or type-changed.
+
+### Changeset workflow (required for every PR that changes behavior)
+
+```bash
+# In the monorepo (core changes)
+pnpm changeset
+
+# In an adapter repo
+npx changeset
+```
+
+When prompted: choose `patch` / `minor` / `major` per the rules above, then write a one-sentence user-facing summary (what changed for users, not how it was implemented). Commit the generated `.changeset/*.md` file in the same PR.
+
+The Release GitHub Action handles version bumping and `npm publish` automatically when the changeset PR is merged to `main`.

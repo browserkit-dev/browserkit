@@ -91,3 +91,27 @@ Scaffold a new adapter with:
 ```bash
 npx @browserkit-dev/core create-adapter my-site
 ```
+
+---
+
+## Versioning and releases
+
+Versioning rules are documented in full in [AGENTS.md — Versioning](https://github.com/browserkit-dev/browserkit/blob/main/AGENTS.md#versioning). The short version:
+
+| Change | Bump |
+|--------|------|
+| Bug fix, doc/log change, no API change | `patch` |
+| New feature, new optional API field | `minor` |
+| Removed/renamed export, required new field | `major` |
+
+Every PR that changes behavior needs a **changeset** before merging:
+
+```bash
+# Core monorepo
+pnpm changeset
+
+# Adapter repos
+npx changeset
+```
+
+Follow the prompts: choose `patch` / `minor` / `major`, write a one-line user-facing summary, and commit the generated `.changeset/*.md` file in the same PR. The Release GitHub Action bumps the version and publishes to npm automatically when the changeset PR merges to `main`.
