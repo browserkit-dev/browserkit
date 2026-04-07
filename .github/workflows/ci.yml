@@ -60,7 +60,7 @@ jobs:
           restore-keys: patchright-chromium-${{ runner.os }}-
 
       - name: Install Patchright Chromium
-        run: pnpm --filter @browserkit-dev/core exec patchright install chromium --with-deps
+        run: pnpm --filter @browserkit-dev/core exec patchright install chromium
 
       - name: Build
         run: pnpm build
