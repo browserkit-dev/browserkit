@@ -50,8 +50,9 @@ export function readCoreVersion(): string {
  * Returns null if not found.
  *
  * For file paths: walks up from the given path to find the nearest package.json.
- * For npm package names: resolves the main entry via createRequire, then walks
- *   up the directory tree to find the package.json whose "name" matches.
+ * For npm package names: tries createRequire resolution first, then scans any
+ *   pnpm workspace packages directory as a fallback (handles workspace-linked
+ *   packages that aren't installed into node_modules).
  */
 export function readAdapterVersion(packageNameOrPath: string): string | null {
   try {
@@ -65,25 +66,68 @@ export function readAdapterVersion(packageNameOrPath: string): string | null {
           return pkg.version ?? null;
         }
         const parent = path.dirname(dir);
-        if (parent === dir) break; // reached filesystem root
+        if (parent === dir) break;
         dir = parent;
       }
       return null;
     }
 
-    // npm package: use createRequire (ESM-safe) to resolve the main entry,
-    // then walk up to find the package.json whose "name" matches.
-    const require = createRequire(import.meta.url);
-    const mainEntry = require.resolve(packageNameOrPath);
-    let dir = path.dirname(mainEntry);
-    while (true) {
-      const candidate = path.join(dir, "package.json");
-      if (fs.existsSync(candidate)) {
-        const pkg = JSON.parse(fs.readFileSync(candidate, "utf8")) as { name?: string; version?: string };
-        if (pkg.name === packageNameOrPath) return pkg.version ?? null;
+    // npm package: try createRequire first (works when installed in node_modules)
+    try {
+      const require = createRequire(import.meta.url);
+      const mainEntry = require.resolve(packageNameOrPath);
+      let dir = path.dirname(mainEntry);
+      while (true) {
+        const candidate = path.join(dir, "package.json");
+        if (fs.existsSync(candidate)) {
+          const pkg = JSON.parse(fs.readFileSync(candidate, "utf8")) as { name?: string; version?: string };
+          if (pkg.name === packageNameOrPath) return pkg.version ?? null;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
+    } catch {
+      // Not in node_modules — fall through to workspace scan
+    }
+
+    // Fallback: scan pnpm workspace packages for the matching package name.
+    // Handles workspace-linked packages that aren't copied into node_modules
+    // (e.g. adapter-hackernews referenced by npm name in browserkit.config.js).
+    const workspaceVersion = findInPnpmWorkspace(packageNameOrPath);
+    if (workspaceVersion !== null) return workspaceVersion;
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Scan pnpm workspace package directories for a package with the given name.
+ * Walks up from the current file's location to find pnpm-workspace.yaml,
+ * then reads each packages/{name}/package.json entry.
+ */
+function findInPnpmWorkspace(packageName: string): string | null {
+  try {
+    // Walk up to find the workspace root (contains pnpm-workspace.yaml)
+    let dir = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 10; i++) {
+      if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
+        // Found workspace root — scan packages/ directory
+        const packagesDir = path.join(dir, "packages");
+        if (!fs.existsSync(packagesDir)) break;
+        for (const entry of fs.readdirSync(packagesDir)) {
+          const pkgJsonPath = path.join(packagesDir, entry, "package.json");
+          if (fs.existsSync(pkgJsonPath)) {
+            const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as { name?: string; version?: string };
+            if (pkg.name === packageName) return pkg.version ?? null;
+          }
+        }
+        break;
       }
       const parent = path.dirname(dir);
-      if (parent === dir) break; // reached filesystem root
+      if (parent === dir) break;
       dir = parent;
     }
     return null;
