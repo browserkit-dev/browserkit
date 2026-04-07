@@ -461,7 +461,17 @@ async function cmdDoctor(args: string[]): Promise<void> {
 
     // Short display name
     const displayName = key.startsWith("/") || key.startsWith(".")
-      ? path.basename(path.dirname(key))
+      ? (() => {
+          // For file paths like /path/to/adapter-linkedin/dist/index.js
+          // we want "adapter-linkedin", not "dist"
+          const dir = path.dirname(key);
+          const base = path.basename(dir);
+          // If the immediate parent is "dist", "src", etc., go one more level up
+          if (["dist", "src", "build", "lib"].includes(base)) {
+            return path.basename(path.dirname(dir));
+          }
+          return base;
+        })()
       : key.replace("@browserkit-dev/", "");
 
     let status: string;
