@@ -10,16 +10,24 @@
     "build": "tsc",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "tsc"
   },
-  "peerDependencies": { "@browserkit-dev/core": "workspace:*" },
+  "peerDependencies": { "@browserkit-dev/core": ">=0.1.0" },
   "devDependencies": {
-    "@browserkit-dev/core": "workspace:*",
+    "@browserkit-dev/core": "github:browserkit-dev/browserkit#main",
     "@types/node": "^22.13.14",
     "patchright": "^1.51.1",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^3.0.9",
     "zod": "^3.24.2"
-  }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

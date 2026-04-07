@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout this adapter repo
+      - uses: actions/checkout@v4
+        with:
+          path: adapter-rescue-flights
+
+      # Checkout browserkit core alongside it so the file: dep resolves
+      - uses: actions/checkout@v4
+        with:
+          repository: browserkit-dev/browserkit
+          path: browserkit
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Build core first so its dist/ is available
+      - name: Install & build @browserkit-dev/core
+        working-directory: browserkit
+        run: |
+          npm install -g pnpm
+          pnpm install --frozen-lockfile
+          pnpm --filter @browserkit-dev/core build
+
+      # Point adapter's @browserkit-dev/core dep at the checked-out core
+      - name: Patch @browserkit-dev/core dep path
+        working-directory: adapter-rescue-flights
+        run: |
+          npm pkg set 'devDependencies.@browserkit-dev/core'='file:../browserkit/packages/core'
+          npm pkg set 'peerDependencies.@browserkit-dev/core'='>=0.1.0'
+
+      - name: Install adapter dependencies
+        working-directory: adapter-rescue-flights
+        run: npm install
+
+      - name: Install Patchright Chromium
+        working-directory: adapter-rescue-flights
+        run: npx patchright install chromium --with-deps
+
+      - name: Build
+        working-directory: adapter-rescue-flights
+        run: npm run build
+
+      # L1 unit tests only — integration tests (*.integration.test.ts) excluded by default vitest config
+      # Integration tests require live network to El Al and Israir — not run in CI
+      - name: Test
+        working-directory: adapter-rescue-flights
+        run: npm test
+        timeout-minutes: 10
