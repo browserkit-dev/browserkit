@@ -35,8 +35,24 @@ jobs:
         with:
           node-version: 20
 
+      # Cache node_modules — invalidates only when package-lock.json changes.
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ matrix.adapter }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: node-modules-${{ runner.os }}-${{ matrix.adapter }}-
+
       - name: Install dependencies
-        run: npm install   # picks up the latest @browserkit-dev/core from npm
+        run: npm ci   # respects lockfile; skips resolution on cache hit
+
+      # Cache Chromium — shared across all matrix legs via restore-keys prefix.
+      - name: Cache Patchright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: patchright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: patchright-chromium-${{ runner.os }}-
 
       - name: Install Patchright Chromium
         run: npx patchright install chromium --with-deps
