@@ -56,6 +56,7 @@ export async function createAdapterServer(
     profileDir: site,
     cdpUrl: adapterConfig.cdpUrl,
     debugPort: adapterConfig.debugPort,
+    extensionPort: adapterConfig.extensionPort,
     deviceEmulation: adapterConfig.deviceEmulation,
     channel: adapterConfig.channel,
     antiDetection: adapterConfig.antiDetection,
@@ -96,6 +97,12 @@ export async function createAdapterServer(
           throw err;
         }
         if (!reauthed) {
+          // For extension mode, give a targeted message — no daemon login command needed.
+          if (sessionConfig.authStrategy === "extension") {
+            return errorResult(
+              `Not logged in to ${adapter.domain}. Please log into ${adapter.domain} in your Chrome browser and ensure the Playwriter extension is active on the tab, then retry.`
+            ) as { content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }> };
+          }
           return buildHandoffResult(adapter, isBackgroundLoginInProgress(adapter.site)) as {
             content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }>;
           };
@@ -277,6 +284,10 @@ export async function createAdapterServer(
         // ── set_mode ───────────────────────────────────────────────────────
         if (action === "set_mode") {
           if (!mode) return errorResult("action:set_mode requires a mode param ('headless' | 'watch' | 'paused')");
+          // Extension strategy: browser is always the user's Chrome; mode-switching doesn't apply.
+          if (sessionConfig.authStrategy === "extension") {
+            return { content: [{ type: "text" as const, text: "Browser is running in extension mode — the user's real Chrome is always visible. Mode-switching is not applicable." }] };
+          }
           const previousMode = sessionManager.getCurrentMode(site);
           if (mode === "paused" && previousMode !== "paused") {
             lock.holdForUser(site);
@@ -568,6 +579,7 @@ export async function createAdapterServer(
         loggedIn,
         lastCallAt,
         lastTool,
+        authStrategy: sessionConfig.authStrategy,
         mode: sessionManager.getCurrentMode(site),
         wsEndpoint: sessionManager.getCdpUrl(site),
       };

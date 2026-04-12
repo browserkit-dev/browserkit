@@ -54,6 +54,13 @@ export async function handleAuthFailure(
 ): Promise<boolean> {
   const { quickWaitMs = 15_000, totalTimeoutMs = 120_000 } = opts;
 
+  // No auto-reauth when the backend doesn't support it (e.g. extension strategy:
+  // the user's Chrome manages auth; there is no headless session to recover).
+  if (!sessionManager.supportsAutoReauth(config.site)) {
+    log.info({ site: config.site }, "backend does not support auto-reauth — user must log in manually");
+    return false;
+  }
+
   // ── Automated login (opt-in) ───────────────────────────────────────────────
   // If the adapter provides LoginOptions, attempt a programmatic form-fill login
   // before falling back to the human-handoff headed-browser flow.

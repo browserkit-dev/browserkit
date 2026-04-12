@@ -59,6 +59,7 @@
     "README.md"
   ],
   "optionalDependencies": {
-    "cloakbrowser": "^0.3.18"
+    "cloakbrowser": "^0.3.18",
+    "playwriter": ">=0.0.60"
   }
 }

@@ -59,9 +59,19 @@ async function cmdStart(args: string[]): Promise<void> {
 
   const notLoggedIn = status.adapters.filter((a) => !a.loggedIn);
   if (notLoggedIn.length > 0) {
-    console.log(
-      `\nRun: browserkit login ${notLoggedIn.map((a) => a.site).join(" | ")}\n`
-    );
+    // Skip login hint for extension-backed adapters — they use the user's Chrome directly.
+    const needsLogin = notLoggedIn.filter((a) => a.authStrategy !== "extension");
+    if (needsLogin.length > 0) {
+      console.log(
+        `\nRun: browserkit login ${needsLogin.map((a) => a.site).join(" | ")}\n`
+      );
+    }
+    const extensionNotLogged = notLoggedIn.filter((a) => a.authStrategy === "extension");
+    if (extensionNotLogged.length > 0) {
+      console.log(
+        `\nExtension mode (${extensionNotLogged.map((a) => a.site).join(", ")}): log in via Chrome with the Playwriter extension active.\n`
+      );
+    }
   }
 
   // Keep running until signal
@@ -114,6 +124,15 @@ async function cmdLogin(args: string[]): Promise<void> {
   }
 
   const { adapter, adapterConfig } = targetAdapter;
+
+  // Extension strategy: no login needed — sessions are inherited from the user's Chrome.
+  if (adapterConfig.authStrategy === "extension") {
+    console.log(
+      `\n  "${adapter.site}" uses authStrategy "extension" — no login command needed.\n` +
+      `  Log into ${adapter.domain} normally in your Chrome browser with the Playwriter extension active.\n`
+    );
+    process.exit(0);
+  }
 
   // Check if daemon is already running BEFORE creating SessionManager
   // (SessionManager constructor acquires the pidfile and throws if another instance holds it)
@@ -276,15 +295,18 @@ function printStatus(status: DaemonStatus): void {
   console.log(`\n  PID: ${status.pid}  (running for ${uptime})\n`);
   const col = (s: string, w: number) => s.padEnd(w);
   console.log(
-    `  ${col("Adapter", 14)}${col("Port", 7)}${col("Auth", 14)}Last tool call`
+    `  ${col("Adapter", 14)}${col("Port", 7)}${col("Mode", 12)}${col("Auth", 18)}Last tool call`
   );
-  console.log(`  ${"-".repeat(55)}`);
+  console.log(`  ${"-".repeat(65)}`);
   for (const a of status.adapters) {
-    const auth = a.loggedIn ? "logged in" : "not logged in";
+    const modeLabel = a.authStrategy === "extension" ? "extension" : (a.mode ?? "headless");
+    const auth = a.authStrategy === "extension"
+      ? (a.loggedIn ? "chrome (logged in)" : "chrome (not logged in)")
+      : (a.loggedIn ? "logged in" : "not logged in");
     const last = a.lastCallAt
       ? `${formatRelativeTime(new Date(a.lastCallAt).getTime())} (${a.lastTool ?? ""})`
       : "never";
-    console.log(`  ${col(a.site, 14)}${col(String(a.port), 7)}${col(auth, 14)}${last}`);
+    console.log(`  ${col(a.site, 14)}${col(String(a.port), 7)}${col(modeLabel, 12)}${col(auth, 18)}${last}`);
   }
   console.log();
 }

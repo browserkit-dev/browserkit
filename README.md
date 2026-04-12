@@ -90,7 +90,7 @@ export default {
     "@someone/my-custom-adapter": {
       port: 3849,
       debugPort: 4849,      // optional: enables raw Playwright access via CDP
-      authStrategy: "persistent",   // "persistent" | "storage-state" | "cdp-attach"
+      authStrategy: "persistent",   // "persistent" | "storage-state" | "cdp-attach" | "extension"
       rateLimit: { minDelayMs: 3000 },
     },
   },
@@ -138,6 +138,80 @@ paused    →  browser visible, tool calls queue — user has manual control
 ```
 
 Switch modes via the `set_mode` MCP tool from any AI agent.
+
+---
+
+## Extension Mode (Chrome via Playwriter)
+
+Some sites aggressively block automated browsers — Google, LinkedIn, and others detect Playwright's Chromium and refuse login. **Extension mode** solves this by running adapter tools directly in your real, logged-in Chrome browser instead of launching a separate Patchright instance.
+
+```
+AI Agent (Cursor / Claude)
+    ↓ HTTP MCP
+browserkit daemon
+    ├── hackernews  :3847  headless Patchright  (default — no login needed)
+    └── linkedin    :3848  your Chrome          (extension mode — inherits your session)
+                              └── Playwriter relay → Chrome extension → authenticated tab
+```
+
+### Setup
+
+**1. Install the Playwriter Chrome extension** from the [Chrome Web Store](https://chromewebstore.google.com/detail/playwriter-mcp/jfeammnjpkecdekppnclgkkffahnhfhe).
+
+**2. Install the playwriter npm package:**
+
+```bash
+pnpm add playwriter
+```
+
+**3. Click the Playwriter extension icon** on the tab you want browserkit to use. The icon turns green when active.
+
+**4. Configure the adapter** to use extension mode:
+
+```javascript
+// browserkit.config.js
+export default {
+  adapters: {
+    "@browserkit-dev/adapter-linkedin": {
+      authStrategy: "extension",  // use Chrome extension backend
+      // extensionPort: 19988,    // optional — Playwriter's default
+    },
+    "@browserkit-dev/adapter-hackernews": {
+      // defaults to "persistent" — headless Patchright as normal
+    },
+  },
+};
+```
+
+**5. Start the daemon** — no `browserkit login` needed:
+
+```bash
+browserkit start
+```
+
+### How it works
+
+browserkit starts Playwriter's local WebSocket relay server and connects Patchright to it via `connectOverCDP()`. The Chrome extension uses `chrome.debugger` to forward CDP commands to your active Chrome tab. Adapter tools receive a full Playwright `Page` object — `page.goto()`, `page.evaluate()`, `page.route()`, screenshots, locators — all work normally.
+
+The Playwriter extension automatically creates a **tab group** named "playwriter" for automation tabs, and all new tabs open in the background (`active: false`) so your current tab is never interrupted.
+
+### What changes vs. default mode
+
+| | Default (`persistent`) | Extension mode |
+|---|---|---|
+| Browser | Headless Patchright | Your real Chrome |
+| Auth | `browserkit login` | Already logged in |
+| Bot detection | Patchright anti-detection | None needed (real Chrome) |
+| Headless | Yes | No |
+| Tab groups | N/A | Green "playwriter" group |
+| `set_mode` | headless/watch/paused | Not applicable |
+
+### Accepted tradeoffs
+
+- Chrome-only (not Brave, Arc, Firefox)
+- `chrome.debugger` shows "Chrome is being controlled by automated test software" banner on attached tabs
+- Requires Chrome to be open and the Playwriter extension active
+- Shared browser: automation runs in your Chrome (CPU/memory shared with your browsing)
 
 ---
 

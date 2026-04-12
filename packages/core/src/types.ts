@@ -65,7 +65,7 @@ export interface ToolDefinition<TInput = unknown> {
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
 
-export type AuthStrategy = "persistent" | "storage-state" | "cdp-attach";
+export type AuthStrategy = "persistent" | "storage-state" | "cdp-attach" | "extension";
 
 export interface SessionConfig {
   site: string;
@@ -75,6 +75,12 @@ export interface SessionConfig {
   cdpUrl?: string | undefined;
   /** Chrome remote debugging port. When set, browser launches with --remote-debugging-port=debugPort. */
   debugPort?: number | undefined;
+  /**
+   * Port for Playwriter's CDP relay server when authStrategy is "extension".
+   * Defaults to 19988 (Playwriter's default).
+   * Requires the `playwriter` optional dependency and the Playwriter Chrome extension.
+   */
+  extensionPort?: number | undefined;
   /**
    * Playwright device preset name for browser emulation (e.g. "Pixel 5", "iPhone 13").
    * Only applies to the "persistent" auth strategy.
@@ -114,6 +120,18 @@ export interface AdapterConfig {
    * Recommended: set to adapterPort + 1000 (e.g. linkedin at 3847 → debugPort 4847)
    */
   debugPort?: number | undefined;
+  /**
+   * Port for Playwriter's CDP relay server when authStrategy is "extension".
+   * Defaults to 19988 (Playwriter's default port).
+   * Only used when authStrategy is "extension".
+   *
+   * Requires:
+   *   1. `playwriter` npm package installed: pnpm add playwriter
+   *   2. Playwriter Chrome extension installed and active on the target tab
+   *
+   * @see https://github.com/remorses/playwriter
+   */
+  extensionPort?: number | undefined;
   /**
    * Playwright device preset name for browser emulation (e.g. "Pixel 5", "iPhone 13").
    * When set, the persistent browser context launches with the device's viewport,
@@ -366,6 +384,8 @@ export interface AdapterStatus {
   url: string;
   loggedIn: boolean;
   mode?: BrowserMode | undefined;
+  /** Auth strategy in use for this adapter. */
+  authStrategy?: AuthStrategy | undefined;
   /** Playwright WS endpoint — attach with chromium.connect(wsEndpoint) for raw access */
   wsEndpoint?: string | null | undefined;
   lastCallAt?: Date | undefined;
