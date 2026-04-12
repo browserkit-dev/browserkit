@@ -1,5 +1,11 @@
 # @browserkit-dev/core
 
+## 0.2.1
+
+### Patch Changes
+
+- 8a49004: Refactor internal browser session management into a `BrowserBackend` strategy pattern. Each auth strategy (`persistent`, `storage-state`, `cdp-attach`, `extension`) is now a self-contained class implementing a `BrowserBackend` interface. No behavior change — public API is unchanged.
+
 ## 0.2.0
 
 ### Minor Changes
@@ -11,7 +17,6 @@
 ### Minor Changes
 
 - Initial public release of @browserkit-dev/core — the framework for building site-specific MCP servers over authenticated browser sessions.
-
   Key features:
   - `defineAdapter` / `SiteAdapter` interface for building adapters
   - `SessionManager` with persistent, storage-state, and CDP-attach strategies
