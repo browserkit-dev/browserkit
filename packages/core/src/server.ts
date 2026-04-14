@@ -74,6 +74,11 @@ function isModuleNotFoundError(err: unknown): boolean {
   return err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "MODULE_NOT_FOUND";
 }
 
+async function buildDaemonStatus(handles: AdapterServerHandle[]): Promise<DaemonStatus> {
+  const adapters = await Promise.all(handles.map((h) => h.getStatus()));
+  return { pid: process.pid, startedAt: new Date(), uptimeMs: process.uptime() * 1000, adapters };
+}
+
 export async function startServer(config: FrameworkConfig): Promise<ServerHandle> {
   const host = config.host ?? "127.0.0.1";
   const basePort = config.basePort ?? 3847;
@@ -147,8 +152,7 @@ export async function startServer(config: FrameworkConfig): Promise<ServerHandle
       await sessionManager.closeAll();
     },
     getStatus: async (): Promise<DaemonStatus> => {
-      const adapters = await Promise.all(handles.map((h) => h.getStatus()));
-      return { pid: process.pid, startedAt: new Date(), uptimeMs: process.uptime() * 1000, adapters };
+      return buildDaemonStatus(handles);
     },
     reload,
   };
@@ -183,13 +187,7 @@ function startStatusSidecar(
   const server = http.createServer(async (req, res) => {
     // GET /status
     if (req.url === "/status" && req.method === "GET") {
-      const adapters = await Promise.all(handles.map((h) => h.getStatus()));
-      const status: DaemonStatus = {
-        pid: process.pid,
-        startedAt: new Date(),
-        uptimeMs: process.uptime() * 1000,
-        adapters,
-      };
+      const status = await buildDaemonStatus(handles);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(status, null, 2));
       return;

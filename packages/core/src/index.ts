@@ -15,6 +15,7 @@ export type {
   ToolContent,
   ToolReference,
   AuthStrategy,
+  BrowserLaunchFields,
   SessionConfig,
   AdapterConfig,
   FrameworkConfig,
@@ -89,7 +90,3 @@ export { withLoginFlow } from "./login-flow.js";
 
 // ─── Version utilities ────────────────────────────────────────────────────────
 export { readCoreVersion, satisfies, parseSemver, readAdapterVersion, resolveWorkspaceMainEntry } from "./version-check.js";
-
-// ─── Observability ────────────────────────────────────────────────────────────
-export { withObservability } from "./observability.js";
-export type { TraceEntry, ObservabilityOptions } from "./observability.js";

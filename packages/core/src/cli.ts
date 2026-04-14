@@ -21,8 +21,7 @@ async function main(): Promise<void> {
     case "login":
       return cmdLogin(args);
     case "logout":
-      console.error("browserkit logout is not yet implemented");
-      process.exit(1);
+      return cmdLogout(args);
     case "reload":
       return cmdReload(args);
     case "status":

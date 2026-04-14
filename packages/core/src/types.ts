@@ -67,52 +67,13 @@ export interface ToolDefinition<TInput = unknown> {
 
 export type AuthStrategy = "persistent" | "storage-state" | "cdp-attach" | "extension";
 
-export interface SessionConfig {
-  site: string;
-  domain: string;
-  authStrategy: AuthStrategy;
-  profileDir: string;
-  cdpUrl?: string | undefined;
-  /** Chrome remote debugging port. When set, browser launches with --remote-debugging-port=debugPort. */
-  debugPort?: number | undefined;
-  /**
-   * Port for Playwriter's CDP relay server when authStrategy is "extension".
-   * Defaults to 19988 (Playwriter's default).
-   * Requires the `playwriter` optional dependency and the Playwriter Chrome extension.
-   */
-  extensionPort?: number | undefined;
-  /**
-   * Playwright device preset name for browser emulation (e.g. "Pixel 5", "iPhone 13").
-   * Only applies to the "persistent" auth strategy.
-   * Use this for adapters that require a mobile user agent (e.g. Google Discover).
-   * Full list: https://playwright.dev/docs/emulation#devices
-   */
-  deviceEmulation?: string | undefined;
-  /**
-   * Browser channel (e.g. "chrome"). Use when the persistent profile was created with
-   * real Chrome — mixing Chrome and Playwright's Chromium on the same profile causes
-   * crashes in headed mode.
-   */
-  channel?: string | undefined;
-  /**
-   * Anti-bot-detection patches. See AdapterConfig.antiDetection for docs.
-   */
-  antiDetection?: {
-    stripCOOP?: boolean | undefined;
-    patchPointerMedia?: boolean | undefined;
-    saveCookieDomains?: string[] | undefined;
-    useCloakBrowser?: boolean | undefined;
-  } | undefined;
-}
-
-// ─── Adapter config (per-entry in browserkit.config.ts) ────────────────────
-
-export interface AdapterConfig {
-  /** Explicit HTTP port for this adapter's MCP server. If omitted, auto-assigned from basePort. */
-  port?: number | undefined;
+/**
+ * Browser session fields shared by both SessionConfig and AdapterConfig.
+ * Add new browser-launch options here once; both types inherit automatically.
+ */
+export interface BrowserLaunchFields {
   authStrategy?: AuthStrategy | undefined;
   cdpUrl?: string | undefined;
-  rateLimit?: { minDelayMs: number } | undefined;
   /**
    * Port for Chrome's remote debugging protocol.
    * When set, the browser launches with `--remote-debugging-port=debugPort`.
@@ -161,26 +122,39 @@ export interface AdapterConfig {
    * patchPointerMedia: Override window.matchMedia in every frame so that
    *   (pointer:fine) returns true in headless. DataDome's challenge script (c.js)
    *   reads this signal to classify headless Chrome as a bot.
+   *
+   * saveCookieDomains: Domains whose cookies should be saved to disk before the
+   *   browser closes and restored on the next launch. Use for session cookies that
+   *   DataDome or similar systems set but Chrome doesn't persist natively.
+   *   Example: [".booking.com", "captcha-delivery.com"]
+   *
+   * useCloakBrowser: Use CloakBrowser (stealth Chromium with 33 C++-level patches)
+   *   instead of Patchright. Downloads ~140MB on first use, cached at ~/.cloakbrowser/.
+   *   Required for sites using DataDome (e.g. Booking.com's secure subdomain).
+   *   NOTE: incompatible with channel:"chrome" — uses its own Chromium binary.
    */
   antiDetection?: {
     stripCOOP?: boolean | undefined;
     patchPointerMedia?: boolean | undefined;
-    /**
-     * Domains whose cookies should be saved to disk before the browser closes
-     * and restored on the next launch. Use for session cookies that DataDome
-     * or similar systems set but Chrome doesn't persist natively (e.g. `datadome`).
-     * Example: [".booking.com", "captcha-delivery.com"]
-     */
     saveCookieDomains?: string[] | undefined;
-    /**
-     * Use CloakBrowser (stealth Chromium with 33 C++-level patches) instead of
-     * Patchright. Downloads ~140MB on first use, cached at ~/.cloakbrowser/.
-     * Required for sites using DataDome (e.g. Booking.com's secure subdomain).
-     * NOTE: incompatible with channel:"chrome" — uses its own Chromium binary.
-     * Profiles created with real Chrome will not work; use a separate profileDir.
-     */
     useCloakBrowser?: boolean | undefined;
   } | undefined;
+}
+
+export interface SessionConfig extends BrowserLaunchFields {
+  site: string;
+  domain: string;
+  /** Required at runtime (defaults to "persistent" when built from AdapterConfig). */
+  authStrategy: AuthStrategy;
+  profileDir: string;
+}
+
+// ─── Adapter config (per-entry in browserkit.config.ts) ────────────────────
+
+export interface AdapterConfig extends BrowserLaunchFields {
+  /** Explicit HTTP port for this adapter's MCP server. If omitted, auto-assigned from basePort. */
+  port?: number | undefined;
+  rateLimit?: { minDelayMs: number } | undefined;
 }
 
 // ─── Handoff ─────────────────────────────────────────────────────────────────

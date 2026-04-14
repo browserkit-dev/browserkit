@@ -59,6 +59,25 @@ export interface BrowserBackend {
 // ─── PersistentBackend ────────────────────────────────────────────────────────
 
 /**
+ * Shared browser connect arguments extracted from mode and config.
+ * Used by both PersistentBackend and StorageStateBackend.
+ */
+function buildConnectArgs(
+  config: SessionConfig,
+  mode: BrowserMode,
+  slowMoMs?: number
+): { headed: boolean; slowMo: number | undefined; debugArgs: string[] } {
+  const headed = mode !== "headless";
+  return {
+    headed,
+    slowMo: headed ? (slowMoMs ?? undefined) : undefined,
+    debugArgs: config.debugPort
+      ? [`--remote-debugging-port=${config.debugPort}`]
+      : [],
+  };
+}
+
+/**
  * Default strategy: `launchPersistentContext` on a per-site profile directory.
  * Supports CloakBrowser, device emulation, anti-automation args, COOP strip,
  * pointer-media patch, and sticky session cookie persistence.
@@ -79,11 +98,7 @@ class PersistentBackend implements BrowserBackend {
   }
 
   async connect(mode: BrowserMode, slowMoMs?: number): Promise<ConnectResult> {
-    const headed = mode !== "headless";
-    const slowMo = headed ? (slowMoMs ?? undefined) : undefined;
-    const debugArgs = this.config.debugPort
-      ? [`--remote-debugging-port=${this.config.debugPort}`]
-      : [];
+    const { headed, slowMo, debugArgs } = buildConnectArgs(this.config, mode, slowMoMs);
 
     const profileDir = path.join(this.dataDir, "profiles", this.config.site);
     fs.mkdirSync(profileDir, { recursive: true, mode: 0o700 });
@@ -240,11 +255,7 @@ class StorageStateBackend implements BrowserBackend {
   }
 
   async connect(mode: BrowserMode, slowMoMs?: number): Promise<ConnectResult> {
-    const headed = mode !== "headless";
-    const slowMo = headed ? (slowMoMs ?? undefined) : undefined;
-    const debugArgs = this.config.debugPort
-      ? [`--remote-debugging-port=${this.config.debugPort}`]
-      : [];
+    const { headed, slowMo, debugArgs } = buildConnectArgs(this.config, mode, slowMoMs);
     const stateFile = path.join(this.dataDir, "profiles", this.config.site, "storage-state.json");
     const browser = await chromium.launch({ headless: !headed, slowMo, args: debugArgs });
     const context = await browser.newContext(
