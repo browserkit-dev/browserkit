@@ -42,7 +42,12 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - `warm_up_browser()` (visiting google/wiki/github before login) was evaluated from stickerdaniel's code — decided as "nice to have" for first-time login, not adopted yet
 - `browserkit login <site>` is blocked by the `CI=1` env var that Cursor sets — must run as `CI="" node packages/core/dist/cli.js login <site>` to open a headed browser from within Cursor terminal
 - `browser` tool `snapshot` action is planned — returns incremental aria-snapshot diff, more token-efficient than screenshots; `page-snapshot` MCP resource already exists, the action adds diff support. Inspired by `SawyerHood/dev-browser`.
+- **Chrome Extension browser backend (planned)**: `authStrategy: "extension"` as a new option alongside `persistent`, `storage-state`, `cdp-attach`. The extension uses `chrome.debugger` API as a CDP relay — Patchright connects via `connectOverCDP()` through a WebSocket relay in the daemon, giving full Playwright API with zero reimplementation. Prior art: Playwright MCP (`microsoft/playwright-mcp`) and Playwriter (`remorses/playwriter`). Extension is ~200 lines of CDP relay + tab group management. Key UX: per-adapter tab groups (named, color-coded) and no-focus-stealing navigation (`chrome.tabs.create` with `active: false`). Accepted tradeoffs: Chrome-only, Web Store review friction, `chrome.debugger` shows yellow "automated" banner on attached tabs, no headless fallback. Best for sites with aggressive bot detection (Google, LinkedIn) — mix-and-match with Patchright per adapter in `browserkit.config.ts`.
+- **Chrome Extension backend implemented** using **Playwriter** (`remorses/playwriter`, MIT) as optional peer dependency — no custom extension required. Playwriter was chosen over `microsoft/playwright-mcp` extension because it already has tab group management (named group, green color, `tabGroups` manifest permission) AND no-focus navigation (`active: false` on all tab creates). User installs Playwriter extension from Chrome Web Store once; daemon calls `connectOverCDP()` to get a full Patchright `Page` — adapter code is entirely unchanged. Key implementation rules: `closeSite` must NOT close the user's Chrome context for extension strategy; `setMode` and `injectStorageState` are no-ops; `getCurrentMode` returns `"watch"`; `handleAuthFailure` skips human-handoff and returns early for extension mode.
 - CloakBrowser is an optional npm package integrated in the Booking.com adapter for DataDome/headless bot-detection bypass — opt-in via adapter config, no hard dependency on core; other stealth patches (Patchright) remain in place alongside it.
+- `preparePage?(page)` optional hook added to `SiteAdapter` interface — called automatically by `SessionManager.getPage()` before returning the page to any tool; adapters use it for per-tool setup (accept cookies, dismiss dialogs, etc.)
+- `getLoginOptions?()` optional hook on `SiteAdapter` — returns `LoginOptions` for automated form-fill login; adapters without this hook fall back to existing human-handoff behavior unchanged
+- `withLoginFlow(page, opts)` implemented in `login-flow.ts` — executes form-fill login sequence, matches post-submit URL against `possibleResults`, returns void on success, throws `LoginError` on definitive failure (wrong password, account blocked), throws plain `Error` for transient/unexpected failures so callers fall back to human-handoff
 
 ## Design Process Preferences
 
@@ -67,19 +72,32 @@ Durable facts and correction patterns for this workspace. Updated by continual-l
 - The main browserkit README doubles as the project's public-facing "blogpost" — user refers to it interchangeably; keep it polished and up-to-date with available + planned adapters
 - Personal adapters (outside the browserkit org) live in `jonzarecki/` GitHub repos — e.g., the rescue-flights adapter (Israir + El Al) is at `jonzarecki/` and must not appear in `browserkit-dev/` repos or CI
 - Verification harness convention: `make agent-check` runs browser-snapshot-based checks and loops until they pass — add to `CLAUDE.md` of each adapter and run after every change
+- Competitor landscape for session persistence / auth-handoff tools is documented in `docs/landscape-session-auth-tools.md`. **Chromectl** is the closest architectural competitor to watch (local-first design ethos, similar to browserkit); others in the landscape: AgentAuth, BrowserState, web-ctl, Playwrightess.
 
 ## Rescue-Flights Adapter (Personal)
 
-- Source `.ts` files are NOT in the local workspace — only compiled `dist/` JS exists at `packages/adapter-rescue-flights/dist/`; the source lives in the `jonzarecki/` GitHub repo
+- Source `.ts` files ARE in the local workspace at `packages/adapter-rescue-flights/src/` (elal.ts, index.ts, israir.ts, run-check.ts, types.ts); the adapter was migrated from dist-only to full source in the monorepo
+- The adapter is NOT in the pnpm workspace (`pnpm-workspace.yaml` excludes it) — build with `cd packages/adapter-rescue-flights && pnpm build` directly
+- `package.json` uses `@browserkit-dev/core: ">=0.1.0"` as peerDep and `github:browserkit-dev/browserkit#main` as devDep (not `workspace:*`); has standalone `tsconfig.json` (not extending monorepo base)
+- Has `.github/workflows/ci.yml`: dual-checkout (adapter + browserkit core), core build, dep path patch, patchright install, adapter build, unit tests (`timeout-minutes: 10`)
 - Runs locally at port 52746; registered in `.cursor/mcp.json` as `"rescue-flights"` (local config only, not committed to monorepo)
 - **Israir tool**: `detailUrl`, `flightNumber`, and `departureTime` are only populated when `availableSeats > 0`; sold-out flights return empty strings for those fields
-- **Israir `buildDetail()` bug**: guard `if (!available || !price)` is overly strict — flights with seats but no price get no booking link; fix is to change to `if (!available)` (1-line change, zero risk)
+- **Israir `buildDetail()` bug**: guard `if (!available || !price)` is overly strict — flights with seats but no price get no booking link; fix implemented as `if (finalSeats === null || finalSeats === 0)` (gates on actual seat count from the segment, not priceBar flag — also correctly suppresses links when segment overrides priceBar count to 0)
 - **El Al tool**: always returns `flightNumber` and `departureTime` for all flights (including sold-out); `detailUrl` links to the seat-availability page (`?d=0` from Israel / `?d=1` to Israel) — El Al booking pages all return 403 (session tokens required), so the availability page is the best accessible link
 - **El Al virtual scroll bug**: Angular virtual scroll recycles DOM nodes on scroll-back — must collect flight data incrementally *during* each scroll step (not after); single-pass post-scroll extraction returns only the currently-visible rows (~7 flights vs 168+ total)
 - **Coverage difference**: El Al covers the next 8 days only; Israir covers 30+ days ahead
 - El Al scraper returns `ERR_ABORTED` when called concurrently with Israir — run the two scrapers sequentially to avoid
 - **Israir booking URL** format: `https://www.israir.co.il/he-IL/reservation/deal/searchFlight/abroadFlight?destCode=TLV&departDate=...&fNumbers=...&sessionId=...` — the `sessionId` is live-session-scoped and expires; cannot be reused outside the active browser session
 - **Verification preference**: use the adapter's own headless Patchright browser (not the cursor-ide-browser MCP) for rescue-flights verification — user stated strong preference ("I prefer it immensely")
+
+## Core Utility Modules (IBS-Inspired)
+
+Adopted from `eshaham/israeli-bank-scrapers` patterns — all additive, no existing adapters broken:
+
+- **`waiting.ts`** — `TypedError`, `SECOND`, `waitUntil(asyncTest, description, timeout, interval)`, `raceTimeout(promise, ms)`, `runSerial(tasks)`, `sleep(ms)`; adapter-facing polling primitive — prefer over ad-hoc `waitForTimeout()` loops
+- **`fetch-utils.ts`** — Node-side: `fetchGet(url, headers?)`, `fetchPost(url, body, headers?)`, `fetchGraphql(url, query, variables, headers?)`; in-page (inherits browser cookies/session): `fetchGetWithinPage(page, url)`, `fetchPostWithinPage(page, url, body)` — critical for adapters that call authenticated XHR/JSON APIs without navigating
+- **`adapter-utils.ts` additions** — `fillInput`, `clickButton`, `waitUntilElementFound`, `waitUntilElementDisappear`, `waitUntilIframeFound`, `waitForUrl`, `navigateWithRetry` — all re-exported from `index.ts`
+- **`login-flow.ts`** — `AuthErrorType` enum (`INVALID_PASSWORD`, `CHANGE_PASSWORD`, `ACCOUNT_BLOCKED`, `TIMEOUT`, `GENERIC`), `LoginError` class, `LoginOptions`/`PossibleLoginResults` types; `withLoginFlow` executes form-fill and matches result URL — all opt-in
 
 ## Versioning
 
